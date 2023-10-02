@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vsdm"
+version = "0.1.0"
+description = "Vector space integration for dark matter direct detection"
+authors = [
+    {name = "Ben G. Lillard", email = "<blillard@uoregon.edu>"},
+]
+licence = "MIT"
+readme = "README.md"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "scipy",
+    "vegas",
+    "h5py",
+    "spherical",
+    "quaternionic",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/blillard/"
+Source = "https://github.com/blillard/"
+Documentation = "https://github.com/blillard/"
+
+[tool.setuptools]
+packages = ["vsdm"]
+
+[tool.setuptools.dynamic]
+version = {attr = "vsdm.__version__"}
+#
