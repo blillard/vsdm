@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: VSDM
+message: "If you use this software, please cite it as below and reference the arXiv.org preprints 2310.01480 and 2310.01483"
+type: software
+authors:
+  - given-names: Ben
+    family-names: Lillard
+    email: blillard@uoregon.edu
+    affiliation: University of Oregon
+    orcid: 'https://orcid.org/0000-0001-8496-4808'
+version: 0.1.0
+date-released: 2023-10-02
