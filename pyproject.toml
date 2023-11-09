@@ -4,12 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vsdm"
-version = "0.1.0"
 description = "Vector space integration for dark matter direct detection"
 authors = [
-    {name = "Ben G. Lillard", email = "<blillard@uoregon.edu>"},
+    {name = "Ben G. Lillard", email = "blillard@uoregon.edu"},
 ]
-licence = "MIT"
+# licence = "MIT"
 readme = "README.md"
 classifiers = [
     "Intended Audience :: Science/Research",
@@ -27,13 +26,14 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/blillard/"
-Source = "https://github.com/blillard/"
-Documentation = "https://github.com/blillard/"
+Homepage = "https://github.com/blillard/vsdm"
+Source = "https://github.com/blillard/vsdm/"
+Documentation = "https://github.com/blillard/vsdm/blob/main/README.md"
 
 [tool.setuptools]
 packages = ["vsdm"]
 
 [tool.setuptools.dynamic]
 version = {attr = "vsdm.__version__"}
+
 #

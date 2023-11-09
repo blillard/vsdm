@@ -17,9 +17,5 @@ The code is still under development. Many of the components have been tested for
 
 
 
-#### Contents:
-- source code, 'vsdm'
-- a 'tools' directory includes several Jupyter notebooks, with examples of how to use VSDM, based on the results in arXiv:2310.01483
-- 'tools/demo/', with CSV files of the wavelet-harmonic basis function coefficients for a toy velocity distribution ('gX') and momentum form factor ('fs2')
 
 
