@@ -25,7 +25,8 @@ from .utilities import *
 from .portfolio import *
 from .units import *
 from .analytic import *
-from .basis import _haar_sph_value, _tophat_value, Basis
+from .basis import haar_sph_value, tophat_value, Basis
+# from .haar import haar_sph_value
 
 
 #
@@ -191,7 +192,7 @@ class McalI():
                 return 0
             else:
                 partQ = self.Q.radRn(nq, ell, q) * fdm2_n(q, fdm_n)
-                partV = self.V.radRn(nv, ell, v) * legendrePl(ell,vMinq/v)
+                partV = self.V.radRn(nv, ell, v) * plm_norm(ell,0,vMinq/v)
                 return self.kI * q*v/(q0*v0)**2 * partQ * partV
             # Integrand units cancel against units from QV integration area
         integrator = vegas.Integrator(QVrange)
@@ -242,27 +243,27 @@ class McalI():
         n_regions = [1,1]
         if v_type=='tophat':
             [v1, v2] = V._baseOfSupport_n(nv, getMidpoint=False)
-            A_v = _tophat_value(v1/v0, v2/v0) #normalize to 0<x<1
+            A_v = tophat_value(v1/v0, v2/v0) #normalize to 0<x<1
             n_regions[0] = 1
         elif v_type=='wavelet':
             [v1, v2, v3] = V._baseOfSupport_n(nv, getMidpoint=True)
             if nv==0:
-                A_v = _haar_sph_value(nv)
+                A_v = haar_sph_value(nv)
                 n_regions[0] = 1
             else:
-                [A_v, B_v] = _haar_sph_value(nv) #already normalized
+                [A_v, B_v] = haar_sph_value(nv) #already normalized
                 n_regions[0] = 2
         if q_type=='tophat':
             [q1, q2] = Q._baseOfSupport_n(nq, getMidpoint=False)
-            A_q = _tophat_value(q1/q0, q2/q0) #normalize to 0<x<1
+            A_q = tophat_value(q1/q0, q2/q0) #normalize to 0<x<1
             n_regions[1] = 1
         elif q_type=='wavelet':
             [q1, q2, q3] = Q._baseOfSupport_n(nq, getMidpoint=True)
             if nq==0:
-                A_q = _haar_sph_value(nq)
+                A_q = haar_sph_value(nq)
                 n_regions[1] = 1
             else:
-                [A_q, B_q] = _haar_sph_value(nq) #already normalized
+                [A_q, B_q] = haar_sph_value(nq) #already normalized
                 n_regions[1] = 2
         # There is always an A_v A_q term:
         v12_star = [v1/vStar, v2/vStar]
