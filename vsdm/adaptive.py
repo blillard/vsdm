@@ -620,7 +620,10 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
             else:
                 dfDx_p = [df for df in dfDx_p_in]
             n = self.p_regions[ix]
-            gensToGo = math.log2(math.fabs(dfDx_p[-1]/dfDx_p[0])) / self.p_order
+            if dfDx_p[0]==0 or dfDx_p[-1]==0:
+                gensToGo = 0
+            else:
+                gensToGo = math.log2(math.fabs(dfDx_p[-1]/dfDx_p[0])) / self.p_order
             decreasing = (gensToGo < 0)
             if decreasing:
                 converging += [(n, gensToGo)]
