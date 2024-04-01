@@ -550,16 +550,11 @@ class ProjectFnlm(GBasis):
             print("Warning! lm index {} belongs to a different database, {}".format(lm_ix, attrs_lm['dname']))
         bdict_info = str_to_bdict(attrs)
         for x,row in enumerate(dataFnlm):
-            ell,m = lm_index[x]
+            l,m = lm_index[x]
             for n in range(len(row)):
                 self.update_maxes((n,l,m))
                 data_f = row[n]
-                if type(data_f) is float or int:
-                    if self.use_gvar:
-                        self.f_nlm[(n,l,m)] = gvar.gvar(data_f, 0)
-                    else:
-                        self.f_nlm[(n,l,m)] = data_f
-                elif type(data_f) is np.ndarray or list:
+                if type(data_f) is np.ndarray or list:
                     if self.use_gvar:
                         if len(data_f)>1:
                             self.f_nlm[(n,l,m)] = gvar.gvar(data_f[0],data_f[1])
@@ -567,6 +562,11 @@ class ProjectFnlm(GBasis):
                             self.f_nlm[(n,l,m)] = gvar.gvar(data_f[0], 0)
                     else:
                         self.f_nlm[(n,l,m)] = data_f[0]
+                elif type(data_f) is float or int:
+                    if self.use_gvar:
+                        self.f_nlm[(n,l,m)] = gvar.gvar(data_f, 0)
+                    else:
+                        self.f_nlm[(n,l,m)] = data_f
         self.t_eval += time.time() - t0
         return dataFnlm, bdict_info
 

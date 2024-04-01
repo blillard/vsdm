@@ -355,8 +355,8 @@ class Portfolio():
         data_attr = {}
         with h5py.File(self.hdf5file,'r') as fhd5:
             mgroup = fhd5[tname + '/' + model]
-            data = mgroup[dname]
-            for lbl,val in data.attrs.items():
+            data = np.array([row for row in mgroup[dname]])
+            for lbl,val in mgroup[dname].attrs.items():
                 data_attr[lbl] = val #import the basis metadata
             return data, data_attr
 
