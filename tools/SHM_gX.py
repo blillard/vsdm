@@ -178,7 +178,7 @@ def main(n_days, l_max, power2):
     bdict = dict(u0=VMAX, type='wavelet', uMax=VMAX)
     bdict['n_days'] = n_days #save this info
     mname = "SHM_{:.3g}".format(n_days) #string model name for saving HDF5
-    epsilon = 1e-6
+    epsilon = 1e-5
     atol_E = energy * epsilon
     atol_f = 0.05 * math.sqrt(atol_E)
     integ_params = dict(method='gquad', verbose=True,
@@ -210,7 +210,7 @@ def main(n_days, l_max, power2):
         t0_lm[lm] += time.time() - t_lm
 
     # Save to hdf5, then read off the integration times.
-    hdf5name = 'out/v2.7_SHM.hdf5'
+    hdf5name = 'out/gX_SHM.hdf5'
     wave_extp.writeFnlm(hdf5name, mname, use_gvar=True)
     # wave_extp.add_data(hdf5name, 'f2_m4', use_gvar=True)
     print("Integration times:")
