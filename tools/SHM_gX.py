@@ -27,9 +27,16 @@ Variables:
         Further <f|nlm> integrals are completed using the refine_lm() method.
 
 With sys, can run this code as: python3 SHM_gX.py n_days l_max power2, e.g.:
+
     python3 SHM_gX.py 0 36 9
-for the 't=0' velocity distribution, going up to ell=36,
-with an initial grid of 512 intervals. 
+
+for the 't=0' velocity distribution, going up to ell=36, with an initial
+grid of 512 intervals.
+
+The 'z' direction is defined to be parallel to the instantaneous Earth velocity,
+so the SHM is always azimuthally symmetric. All <f|nlm> with nonzero 'm' vanish,
+and the projection integral is 2d (over 'v' and 'cos theta').
+As a result, the numerical integration is very fast.
 """
 import math
 import numpy as np
