@@ -31,17 +31,33 @@ so the SHM is always azimuthally symmetric. All <f|nlm> with nonzero 'm' vanish,
 and the projection integral is 2d (over 'v' and 'cos theta').
 As a result, the numerical integration is very fast.
 
-With sys, can run this code as: python3 SHM_gX.py n_days l_max power2, e.g.:
+With sys, can run main(n_days,l_max,power2) as:
 
-    python3 SHM_gX.py 0 36 9
+    python3 SHM_gX.py n_days l_max power2
 
-for the 't=0' velocity distribution, going up to ell=36, with an initial grid
-of 512 intervals. Or, for annual modulation, can generate many snapshots:
+e.g. python3 SHM_gX.py 12.5 36 9 for the 't=12.5 days' velocity distribution,
+going up to ell=36, with an initial grid of 512 intervals.
+Or, for annual modulation, can generate many snapshots:
 
     for i in {0..25}; do python3 -u SHM_gX.py $(($i * 14)) l_max power2; done
 
 All snapshots in time are saved to the same hdf5 file, under model names
 determined by n_days. (Using n_days if it is an integer, or its first 4 digits.)
+
+Also including an alternative program, alt_vE(vE_km_s,l_max,power2), with
+the input 'vE_km_s' providing the Earth speed in km/s. This provides a simpler
+accurate interpolation for annual modulation analyses. E.g:
+
+    for i in {237..267}; do python3 -u SHM_gX.py $i l_max power2; done
+
+(Expecting linear interpolation for gX(vE) to be more accurate than linear
+interpolation on gX(t).)
+
+Each version of the SHM is saved with a modelName SHM_d{n_days} for main()
+
+Recommendation for analyses that vary the other SHM parameters:
+* All versions of gX can be saved to the same HDF5 file.
+* I recommend distinguishing
 """
 import math
 import numpy as np
@@ -182,7 +198,68 @@ def main(n_days, l_max, power2):
 
     bdict = dict(u0=VMAX, type='wavelet', uMax=VMAX)
     bdict['n_days'] = n_days #save this info
-    mname = "SHM_{:.4g}".format(n_days) #string model name for saving HDF5
+    mname = "SHM_d{:.4g}".format(n_days) #string model name for saving HDF5
+    epsilon = 1e-5
+    atol_E = energy * epsilon
+    atol_f = 0.05 * math.sqrt(atol_E)
+    integ_params = dict(method='gquad', verbose=True,
+                        atol_f=0.01*atol_f,
+                        rtol_f=epsilon)
+    t0 = time.time()
+    wave_extp = vsdm.ExtrapolateFnlm(bdict, gModel, integ_params,
+                                     power2_lm={}, p_order=3,
+                                     epsilon=epsilon,
+                                     atol_energy=atol_E,
+                                     atol_fnlm=atol_f,
+                                     max_depth=5,
+                                     refine_at_init=False,
+                                     f_type='gX',
+                                     csvsave_name=None,
+                                     use_gvar=True)
+
+    lm_list = [(l, 0) for l in range(l_max+1)]
+    t0_lm = {}
+    for lm in lm_list:
+        t_lm = time.time()
+        wave_extp.initialize_lm(lm, power2)
+        t0_lm[lm] = time.time() - t_lm
+        print("Integration time:", t0_lm[lm])
+    # Step 2: if necessary, refine...
+    for lm in lm_list:
+        t_lm = time.time()
+        wave_extp.refine_lm(lm, max_depth=3)
+        t0_lm[lm] += time.time() - t_lm
+
+    # Save to hdf5, then read off the integration times.
+    hdf5name = 'out/gX_SHM.hdf5'
+    wave_extp.writeFnlm(hdf5name, mname, use_gvar=True)
+    # wave_extp.add_data(hdf5name, 'f2_m4', use_gvar=True)
+    print("Integration times:")
+    for lm,t in t0_lm.items():
+        print("\t", lm, t)
+    print("Total evaluation time:", time.time()-t0)
+
+
+def alt_vE(vE_km_s, l_max, power2):
+    #vE: lab speed in galactic frame.
+    # SHM: vE varies from 237.2 to 266.2
+    vE = vE_km_s * km_s
+
+    @numba.jit("double(double[:])", nopython=True)
+    def gModel(vSph):
+        # dimensionless "g_tilde = VMAX**3 * gX"
+        [v_r, v_theta, v_phi] = vSph
+        costheta = np.cos(v_theta)
+        return VMAX**3 * gSHM_sph(vE, v_r, costheta)
+
+    gModel.is_gaussian = False
+    gModel.phi_symmetric = True
+    energy = tilde_E(vDisp_0, beta)
+    print("energy: ", energy)
+
+    bdict = dict(u0=VMAX, type='wavelet', uMax=VMAX)
+    bdict['vE'] = vE #save this info
+    mname = "SHM_v{:.4g}".format(vE) #string model name for saving HDF5
     epsilon = 1e-5
     atol_E = energy * epsilon
     atol_f = 0.05 * math.sqrt(atol_E)
@@ -225,6 +302,7 @@ def main(n_days, l_max, power2):
 
 
 
-main(float(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
+# main(float(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
+alt_vE(float(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
 
 #
