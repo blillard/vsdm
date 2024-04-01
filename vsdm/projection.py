@@ -546,7 +546,7 @@ class ProjectFnlm(GBasis):
         folio = Portfolio(hdf5file, extra_types=[typeName])
         dataFnlm, attrs = folio.read_folio(typeName, modelName, d_fnlm)
         lm_index, attrs_lm = folio.read_folio(typeName, modelName, lm_ix)
-        if 'dname' in attrs_lm.keys() and attrs_lm['dname'] is not d_fnlm:
+        if 'dname' in attrs_lm.keys() and attrs_lm['dname'] != d_fnlm:
             print("Warning! lm index {} belongs to a different database, {}".format(lm_ix, attrs_lm['dname']))
         bdict_info = str_to_bdict(attrs)
         for x,row in enumerate(dataFnlm):
