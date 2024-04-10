@@ -521,14 +521,23 @@ class ProjectFnlm(GBasis):
         folio.update_folio(typeName, modelName, dname, newdata=data_out)
 
 
-    def importFnlm(self, hdf5file, modelName, d_fnlm, lm_ix, alt_type=None):
+    def importFnlm(self, hdf5file, modelName,
+                   d_fnlm=DNAME_F, lm_ix=LM_IX_NAME, alt_type=None):
         """Imports <f|nlm> from hdf5, adds to f_nlm.
 
         Arguments:
-            d_fnlm: database of <f|nlm>, in 2d array f_lm_n
-            lm_ix: maps the row-number in d_fnlm to (l, m).
             hdf5file, modelName, alt_type: sets hdf5file/typeName/modelName
                 default typeName = self.f_type, unless an alt_type is provided
+            d_fnlm: database of <f|nlm>, in 2d array f_lm_n
+                Default: value of DNAME_F from portfolio.py.
+            lm_ix: maps the row-number in d_fnlm to (l, m).
+                Default: LM_IX_NAME from portfolio.py.
+        * Note: if self.writeFnlm is applied multiple times with the same
+        modelName, then Portfolio automatically assigns different database
+        names (other than DNAME_F). In this case, imporeFnlm should be run
+        once per database, taking care to match each lm_ix file to its database.
+
+
 
         Returns:
             dataFnlm: the f_lm_n gvar array from hdf5file
@@ -554,7 +563,7 @@ class ProjectFnlm(GBasis):
             for n in range(len(row)):
                 self.update_maxes((n,l,m))
                 data_f = row[n]
-                if type(data_f) is np.ndarray or list:
+                if type(data_f) in [np.ndarray, list]:
                     if self.use_gvar:
                         if len(data_f)>1:
                             self.f_nlm[(n,l,m)] = gvar.gvar(data_f[0],data_f[1])
@@ -562,7 +571,8 @@ class ProjectFnlm(GBasis):
                             self.f_nlm[(n,l,m)] = gvar.gvar(data_f[0], 0)
                     else:
                         self.f_nlm[(n,l,m)] = data_f[0]
-                elif type(data_f) is float or int:
+                else:
+                # elif type(data_f) is float or int:
                     if self.use_gvar:
                         self.f_nlm[(n,l,m)] = gvar.gvar(data_f, 0)
                     else:
