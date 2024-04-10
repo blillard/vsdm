@@ -740,7 +740,9 @@ class ExtrapolateFnlm(ProjectFnlm, Interpolator3d):
             self.converged_lm[lm] = False
         converging,diverging = Flm_n.diagnose_convergence(verbose=self.verbose)
         ngensLeft = np.array([divg[1] for divg in diverging])
-        if len(converging) < len(diverging):
+        convergedFraction = len(converging)/(len(converging)+len(diverging))
+        print("Converged fraction: {:.3g}%".format(convergedFraction*100))
+        if convergedFraction < 0.5:
             print("! Most blocks have unconverged Taylor series.")
             print("Recommend re-initializing with finer grid spacing.")
         if len(diverging) > 0:
