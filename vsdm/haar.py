@@ -94,7 +94,7 @@ class HaarExtrapolate defines wavelet extrapolations for the full interval [0,1]
         local Taylor series and extrapolation coefficients.
     HaarExtrapolate has access to the full list of wavelet coefficients, so it
         can evaluate f(x2) at the midpoint of every block. This info is
-        sufficient to define an Interpolator (from utilities.py),
+        sufficient to define an Interpolator (from utilities.py).
 
 """
 _haar_ = ['hindex_n', 'hindex_LM', 'haar_sph_value', 'haar_fn_x', 'haar_x123',
@@ -108,18 +108,8 @@ __all__ = _haar_ + _haartree_ + _hextrap_
 
 import math
 import numpy as np
-# import scipy.special as spf
-# import scipy.integrate as sint # gaussian quadrature
-# import vegas # Monte Carlo integration
 import gvar # gaussian variables; for vegas
-# import time
-# import quaternionic # For rotations
-# import spherical #For Wigner D matrix
-# import csv # file IO for projectFnlm
-# import os.path
-# import h5py
 
-# from .units import *
 from .utilities import *
 # from .basis import Basis
 
@@ -922,39 +912,6 @@ class HaarString():
         """
         return sparse_haar_inverse(self.hstr, f_n_dict, dim=dim,
                                    include_hstr=include_hstr)
-        # # n=0
-        # fh_now = [haar_sph_value(n, dim=dim) * f_n_dict[0]]
-        # n_to_divide = list_all_n(self.hstr, include_self=include_hstr)
-        # hs = [1]
-        # made_change = True
-        # while made_change and len(n_to_divide)>0:
-        #     fh_update = []
-        #     old_hs = hs
-        #     made_change = False
-        #     # go through every n in HaarString hs:
-        #     # if n is on the 'n_to_divide' list, bisect it and add the values
-        #     #     from f_n_dict[n] to the new left and right bins.
-        #     #     Append these two bins to fh_update.
-        #     # otherwise, pass along the old value of fh_now
-        #     # If one pass through the full list caused any additions to fh_now,
-        #     # do another round. Stop when no further changes are made.
-        #     for ix in range(len(old_hs)):
-        #         n = old_hs[ix]
-        #         if n in n_to_divide:
-        #             A,mB = haar_sph_value(n, dim=dim)
-        #             fh_A = A * f_n_dict[n]
-        #             fh_B = mB * f_n_dict[n]
-        #             fh_update += [fh_now[ix]+fh_A, fh_now[ix]+fh_B]
-        #             hs = _hs_subdivideAt(hs, n)
-        #             n_to_divide.remove(n)
-        #             made_change = True
-        #         else:
-        #             fh_update += fh_now[ix]
-        #     # end of this round: hs is already current. Update fh_now:
-        #     fh_now = fh_update
-        #     # Now, fh_now and hs have same shape again.
-        # return fh_now
-
 
     def blockHeaders(self, level=2):
         # hstr of top-level [n] for each block
@@ -1010,10 +967,6 @@ class HaarBlock(HaarString):
         self.block_n = _hs_block_n(n, level=self.depth) # complete list of n in the block
         hstr = _block_hstr(self.block_n)
         HaarString.__init__(self, hstr=hstr)
-        # self.hstr = _block_hstr(self.block_n)
-
-    # def descendants(self, level=1):
-    #     return _block_descendants(self.block_n, level=level)
 
     def get_dfk(self, f_n_dict):
         return dfk_block(f_n_dict, self.block_n, dim=self.dim)
@@ -1030,7 +983,6 @@ class HaarBlock(HaarString):
         df_k = dfk_block(f_n_dict, self.block_n, dim=self.dim)
         delta_f0 = _delta_f0_n(df_k, self.block_n[0], dim=self.dim)
         return [delta_f0] + df_k
-
 
     def extrapolate_n(self, f_n_dict, nd):
         return extrapolate_block_n(f_n_dict, self.block_n, nd, dim=self.dim)

@@ -1,29 +1,21 @@
 """VSDM: orthogonal basis functions for class Basis().
 
 Functions and classes:
-    ylm_real: real spherical harmonics. Uses plm_real
+    spherical harmonics: see utilities.py
+    spherical wavelets: see haar.py
     lag_spherical: spherical Laguerre functions
-    haar_fn_x: spherical wavelet functions
-    class Basis: defines an orthogonal basis of functions
-        methods for <f|nlm> integration, f(r) = sum_nlm(<nlm|f>|nlm>) summation
+    Basis: defines an orthogonal basis of functions, with methods for
+        <f|nlm> integration, f(r) = sum_nlm(<nlm|f>|nlm>) summation
 
-Functions here are all dimensionless: no need for .units
+Functions here are all dimensionless (no need for .units).
 """
 
-__all__ = ['Basis', 'lag_spherical', 'tophat_value',
-           'f_tophat_to_sphwave']
+__all__ = ['Basis', 'lag_spherical', 'tophat_value', 'f_tophat_to_sphwave']
 
 import math
 import numpy as np
 import scipy.special as spf
-import vegas # numeric integration
 import gvar # gaussian variables; for vegas
-# import time
-# import quaternionic # For rotations
-# import spherical #For Wigner D matrix
-# import csv # file IO for projectFnlm
-# import os.path
-# import h5py # database format
 
 from .utilities import *
 from .haar import *
@@ -56,8 +48,6 @@ def tophat_value(x1, x2, dim=3):
     """
     return math.sqrt(dim/(x2**dim - x1**dim))
 
-
-
 def f_tophat_to_sphwave(f_n_list, dim=3):
     """Change of basis from normalized tophat functions to spherical wavelets.
 
@@ -81,30 +71,7 @@ def f_tophat_to_sphwave(f_n_list, dim=3):
                          for n in range(nMax+1)]
     f_x = [f_n_list[n] * c_n[n] for n in range(nMax+1)]
     return haar_transform(f_x, dim=dim)
-    # lambdaMax = power2 - 1
-    # # first, the m=0 wavelet
-    # fw_m = 0.
-    # for n in range(nMax+1):
-    #     iprodMN = _haar_fn_x_integral(0, dim=dim)/c_n[n]
-    #     fw_m += f_n_list[n] * iprodMN
-    # f_wave = [fw_m]
-    # for lam in range(lambdaMax+1):
-    #     for mu in range(2**lam):
-    #         m = 2**lam + mu
-    #         haarVals = _haar_fn_x_integral(m, dim=dim)
-    #         fw_m = 0.
-    #         n_per_halfwavelet = 2**(lambdaMax-lam)
-    #         n_init_A = mu * 2**(power2-lam)
-    #         n_init_B = n_init_A + n_per_halfwavelet
-    #         for n in range(n_init_A, n_init_A + n_per_halfwavelet):
-    #             iprodMN = haarVals[0]/c_n[n]
-    #             fw_m += f_n_list[n] * iprodMN
-    #         for n in range(n_init_B, n_init_B + n_per_halfwavelet):
-    #             iprodMN = haarVals[1]/c_n[n]
-    #             fw_m += f_n_list[n] * iprodMN
-    #         # append to f_wave:
-    #         f_wave += [fw_m]
-    # return f_wave
+
 
 
 class Basis():
@@ -164,8 +131,6 @@ class Basis():
         uType = bdict['type']
         if uType=="wavelet":
             assert('uMax' in bdict), "Missing mandatory parameter: 'uMax'."
-            # else:
-            #     assert(self.u0 == bdict['uMax']), "wavelet: require u0=uMax."
         elif uType=='tophat':
             assert('uiList' in bdict), "tophat: need uiList."
             #uiList should be ordered and nonnegative
@@ -195,11 +160,9 @@ class Basis():
         elif self.basis['type']=="laguerre":
             return lag_spherical(n, ell, x)
         elif self.basis['type']=="tophat":
-            #x_n = u_n / u0
             x_n,x_np1 = self.uiList[n]/self.u0, self.uiList[n+1]/self.u0
             if x_n < x < x_np1:
                 return tophat_value(x_n, x_np1, dim=self.dim)
-                # return tophat_value(x_nm1, x_n)
             else:
                 return 0
 

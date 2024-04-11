@@ -1,5 +1,11 @@
-"""VSDM: ProjectFnlm implements Basis integration for a specific function fSph.
+"""Projects a 3d function onto a basis of orthogonal functions.
 
+ProjectFnlm is one of the primary functions of vsdm. Each class instance
+evaluates and saves the values of <f|nlm> for the specified Basis (|nlm>) and
+function fSph(u,theta,phi), a 3d function in spherical coordinates.
+
+ProjectFnlm contains methods for saving CSV or HDF5 files, or importing
+<f|nlm> coeffients from either type of file.
 """
 
 __all__ = ['ProjectFnlm']
@@ -7,7 +13,6 @@ __all__ = ['ProjectFnlm']
 
 import math
 import numpy as np
-# import scipy.special as spf
 import vegas # numeric integration
 import gvar # gaussian variables; for vegas
 import time
@@ -19,10 +24,6 @@ from .basis import ylm_real
 from .gaussians import GBasis
 from .utilities import *
 from .portfolio import *
-
-
-
-
 
 
 
@@ -41,6 +42,8 @@ class ProjectFnlm(GBasis):
         integ_params: e.g. dict(neval=1e4, nitn=10, nitn_init=5, verbose=False)
         f_type: labels the type of function being projected, e.g. 'gX' or 'fs2'
             default label 'proj' defined in portfolio.py
+        csvsave_name: if not None, then ProjectFnlm saves any new <f|nlm>
+            values to the specified csv file.
 
     Returns:
         f_nlm: dictionary of <f|nlm>, indexed by (n,l,m), with gvar values
@@ -49,35 +52,35 @@ class ProjectFnlm(GBasis):
             See utilities.py.
             phi_symmetric: if so, only adds entries for m=0 coefficients.
                 Length of array is always (ellMax+1)**2!
-            NEW: need not be gvar valued.
-    f_nlm is best for sparse (nlm) lists;
-    f_lm_n is best for saving hdf5 files.
+    f_nlm is best for sparse (nlm) lists; f_lm_n is best for saving hdf5 files.
 
     Methods and variables:
         updateFnlm: adds new f[nlm], or overwrites old value
-            e.g. with better precision
         _makeFarray: makes vectors of <f|nlm> with fixed (lm)
             self.phi_symmetric sets m=0.
             use_gvar=False for float-valued matrix output
-        nlmFu, nlmFu_subset: returns f(uvec) from sums over <f|nlm>
-        errorCalcs: integrates nlmFu(r) and original f(r), and (nlmFu-f)(r)
-        errorTot, errorAbsTot: integrate (nlmFu-f)(r) and np.abs(nlmFu-f)(r)
-        getVSOPbasis: returns a Basis instance of (basisType,u0,uMax)
     Methods for saving/reading/importing...
-    * writeFnlm(hdf5file, nlmlist=None):
-        saves f_nlm to readable CSV file, for all nlm, or nlm in nlmlist
+    * writeFnlm_csv(hdf5file, nlmlist=None):
+        saves f_nlm to CSV file, for all nlm, or for nlm in nlmlist
         row format: ["n", "l", "m", "f.mean", "f.sdev"]
-    * writeF_array(hdf5file,modelName):
-        saves <f|(lm)n> array to HDF5 dataset in hdf5file/modelName
-        row format: x = _LM_to_x(l,m) = 0,1,2,...l(l+2) for complete list of (lm).
-        For sparse lists of evaluated (l,m), uses self.lm_index to map (l,m) to
-            sequential x = 0,1,2,....
-    * readFnlm(), readFlmVecs(hdf5file, modelName=None):
-        opens hdf5file, returns data_fnlm dict using all entries
-            (or only those with matching modelName)
-    * importFnlm(), importFlmVecs(csvfile, modelName=None):
-        writes data_fnlm from CSV into self.f_nlm
-        Caution! import() will overwrite any existing f_nlm entries
+    * writeFnlm(hdf5file,modelName):
+        saves <f|(lm)n> array to HDF5 dataset in hdf5file/modelName/(dataset),
+            usually with the default dataset name DNAME_F = 'fnlm'.
+        The row index 'x' is based on the order of self.lm_index. This mapping
+            is saved to the companion dataset as LM_IX_NAME = 'lm_index'.
+        If either dataset name is already taken, then Portfolio picks a new
+            name (e.g. 'fnlm__2') for the newer data.
+    * importFnlm(hdf5file, model, **kwargs):
+        reads <f|nlm> from an hdf5 file, and saves the results to self.f_nlm.
+        The 'file path' inside the hdf5 file is:
+            hdf5file/type/model/(d_fnlm, lm_ix), where d_fnlm contains <f|nlm>,
+        and lm_ix maps each row to its (l, m) value.
+        The defaults type=self.f_type, d_fnlm=DNAME_F, lm_ix=LM_IX_NAME
+            can be changed using the keyword arguments.
+    * importFnlm_csv(csvfile):
+        writes <f|nlm> data from the csv file into self.f_nlm.
+    Note: the import() functions will overwrite any existing f_nlm[nlm]
+        entries with the new (n, l, m) coeffients.
     """
     def __init__(self, bdict, fSph, integ_params, nlmlist=[], f_type=None,
                  csvsave_name=None, use_gvar=True):
@@ -135,19 +138,10 @@ class ProjectFnlm(GBasis):
         self.ellMax = 0
         self.nMax = 0
         self.lm_index = [] # list of (l, m) included in f_nlm.
-        # Unpack VEGAS integration parameters:
-        # nitn_init = integ_params['nitn_init']
-        # nitn = integ_params['nitn']
-        # neval = int(integ_params['neval'])
         if hasattr(integ_params, 'verbose'):
             self.verbose = integ_params['verbose']
         else:
             self.verbose = False
-        # if 'neval_init' in integ_params:
-        #     neval_init = int(integ_params['neval_init'])
-        # else:
-        #     neval_init = neval
-        # self.integ_params = integ_params
         if self.use_gvar:
             self.f2_energy = gvar.gvar(0,0)
         else:
@@ -296,7 +290,7 @@ class ProjectFnlm(GBasis):
                     (r, theta) = u2d
                     uvec = (r, theta, 0.0)
                     return dV_sph(uvec) * self.fSph(uvec)**2/self.u0**3
-            # do VEGAS:
+            # integrate:
             energy = (NIntegrate(power_u, volume, integ_params)
                       * 2*math.pi * theta_Zn)
             if integ_params['verbose']==True:
@@ -537,8 +531,6 @@ class ProjectFnlm(GBasis):
         names (other than DNAME_F). In this case, imporeFnlm should be run
         once per database, taking care to match each lm_ix file to its database.
 
-
-
         Returns:
             dataFnlm: the f_lm_n gvar array from hdf5file
             bdict_info: contains basis parameters incl. 'phi_symmetric'
@@ -638,10 +630,6 @@ class ProjectFnlm(GBasis):
                     continue
                 str_n, str_l, str_m, f_mean, f_std = row
                 nlm = (int(str_n),int(str_l),int(str_m))
-                # isheader = (mName=="#")
-                # iscomment = False
-                # if len(mName) > 0:
-                #     iscomment = (mName[0]=="#")
                 if use_gvar:
                     data_fnlm[nlm] = gvar.gvar(float(f_mean), float(f_std))
                 else:

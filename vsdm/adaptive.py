@@ -1,5 +1,25 @@
-"""VSDM: AdaptiveLM runs the iterative <f|nlm> integration for fixed (lm).
+"""An adaptive version of ProjectFnlm using wavelet extrapolation.
 
+HaarExtrapolate: Extrapolation for a 1d wavelet expansion. Identifies a
+    pth-order Taylor series for 'blocks' of adjacent wavelets.
+
+AdaptiveFn: runs the iterative <f|nlm> integration for fixed (lm).
+    Step 1. Evaluates <f|bin,lm> for (2**power2) of orthogonal tophat functions.
+    Step 2. Checks the precision of the numeric integration
+    Step 3. Applies the discrete spherical wavelet transformation to convert
+        <f|bin,lm> to the usual <f|nlm>.
+    Step 4. Uses HaarExtrapolate to predict the values of the largest 'n'
+        wavelets (the latest 'generation'), and compares each prediction
+        to the numerical integral result for <f|nlm>. Any 'block' whose
+        descendant wavelets are not all precisely predicted is added to the
+        list self.blocks_to_refine for further evaluation.
+    Step 5. Each block in blocks_to_refine is subdivided, and new generations
+        of <f|nlm> are evaluated, until the predictions from HaarExtrapolate
+        are sufficiently accurate. The class method refineCompletely() repeats
+        this until all blocks have converged.
+
+ExtrapolateFnlm: a ProjectFnlm object that runs AdaptiveFn for any number
+    of (l,m) modes.  
 """
 
 __all__ = ['HaarExtrapolate', 'AdaptiveFn', 'ExtrapolateFnlm']
@@ -7,13 +27,8 @@ __all__ = ['HaarExtrapolate', 'AdaptiveFn', 'ExtrapolateFnlm']
 
 import math
 import numpy as np
-# import scipy.special as spf
-import vegas # numeric integration
 import gvar # gaussian variables; for vegas
 import time
-import csv # file IO for projectFnlm
-# import os.path
-import h5py
 
 from .basis import f_tophat_to_sphwave
 from .projection import ProjectFnlm
@@ -55,7 +70,6 @@ class HaarExtrapolate(Interpolator):
         self.p_order = p_order
         self.p_depth = int(math.log2(p_order+1))
         # p_depth: number of generations needed for a polynomial Block
-        # self.update()
         n_list = [n for n in self.f_n.keys()]
         evaluated = hs_n_to_hstr(n_list, inclusive=False)
         self.evaluated = HaarString(hstr=evaluated)
@@ -418,6 +432,7 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
             # Note: nth bin has base of support (uiList[n], uiList[n+1])
             gridb['uiList'] = uiList
             gridb['nMax'] = nMax
+            """Steps 1-3: """
             f_n = self.coarsegridInitialization(gridb)
 
 
@@ -426,31 +441,7 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
         # Now self.f_n, self.p_regions, etc are defined.
 
         """Step 4. Check accuracy of cubic extrapolation method."""
-        # self.evaluated = HaarString(power2=power2) # current list of finest-detail wavelets
-        # p_regions = HaarString(power2=power2-self.p_depth) # intervals for Taylor series
         self.blocks_to_refine = self.check_extrap_accuracy(verbose=self.verbose)
-        # self.blocks_to_refine = [] # tracks blocks with inaccurate wavelet extrapolation
-        # for n in self.p_regions.prevGen(level=1): # back up one level
-        #     n_fint_fext = self.testBlockAccuracy(n, level=1)
-        #     all_good = True
-        #     for nd,f_actual,f_ex in n_fint_fext:
-        #         f_diff = f_actual - f_ex
-        #         if self.verbose:
-        #             print("n={}\tf_actual: {} \tf_est: {}".format(nd, f_actual, f_ex))
-        #             print("\tf_diff: {}".format(f_diff))
-        #         if self.use_gvar:
-        #             a_error = math.fabs(f_diff.mean)
-        #         else:
-        #             a_error = math.fabs(f_diff)
-        #         if self.atol_fnlm is not None and a_error > self.atol_fnlm:
-        #             all_good = False
-        #             if self.use_gvar and a_error < f_diff.sdev:
-        #                 all_good = True
-        #                 print("Warning: f.sdev is larger than atol_fnlm. Need to make atol_f more precise.")
-        #     if not all_good:
-        #         self.blocks_to_refine += [2*n, 2*n+1]
-        #         if self.verbose:
-        #             print("Extrapolation from block n={} insufficiently accurate.".format(n))
 
         """At this stage, p_regions lists the narrowest possible wavelet blocks.
         None of the descendant <f|nlm> have been tested directly, but those
@@ -466,10 +457,6 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
 
     def coarsegridInitialization(self, gridb):
         """Step 1. Evaluate <f|bin,lm> on 2**power2 equal-width bins."""
-        # gridb = dict(u0=u0, uMax=uMax, type='tophat')
-        # uiList = [uMax * n/2**power2 for n in range(2**power2+1)]
-        # # Note: nth bin has base of support (uiList[n], uiList[n+1])
-        # gridb['uiList'] = uiList
         nMax = gridb['nMax']
         nlmlist = [(n, self.lm[0], self.lm[1]) for n in range(nMax+1)]
         if self.verbose:
@@ -509,13 +496,10 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
         for nlm in nlmlist:
             (n,l,m) = nlm
             self.f_nlm[(nlm)] = wave_flmn[n]
-        # for n in range(nMax+1):
             f_n[n] = wave_flmn[n] #for HaarExtrapolate
         if self.csvsave_name is not None:
             self.writeFnlm_csv(self.csvsave_name, nlmlist=nlmlist)
         return f_n
-        # init HaarExtrapolate after ProjectFnlm: dim is defined in bdict.
-        # HaarExtrapolate.__init__(self, f_n, p_order=p_order, dim=self.dim)
 
     def evaluateBlockNextGen(self, n, overwrite=False):
         """Evaluate all <f|n> in the next generation under block 'n'.
@@ -714,8 +698,6 @@ class ExtrapolateFnlm(ProjectFnlm, Interpolator3d):
             power_lm = self.initialize_lm(lm, power2)
             if refine_at_init and power_lm > 0.05*atol_energy:
                 self.refine_lm(lm, max_depth=max_depth)
-                # Flm_n[lm].refineCompletely(max_depth=max_depth)
-        # Interpolator3d.__init__(self, Flm_n)
         # saves Flm_n as self.f_lm
 
     def initialize_lm(self, lm, power2):

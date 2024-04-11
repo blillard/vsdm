@@ -11,16 +11,8 @@ __all__ = ['GaussianF', 'GBasis', 'normG_nli_integrand']
 import math
 import numpy as np
 import scipy.special as spf
-# import vegas # numeric integration
 import gvar # gaussian variables; for vegas
-# import time
-# import quaternionic # For rotations
-# import spherical #For Wigner D matrix
-# import csv # file IO for projectFnlm
-# import os.path
-# import h5py # database format for mathcalI arrays
 
-# from .units import *
 from .utilities import *
 from .basis import Basis
 
@@ -213,22 +205,6 @@ class GBasis(Basis, GaussianF):
                 exp_ij = np.exp(u2_ij/sigma2_ij - u2i/sigma2_i - u2j/sigma2_j)
                 sumE += c_i*c_j*exp_ij / (np.pi*1.5 * (sigma2_i+sigma2_j)**1.5)
         return sumE / self.u0**3
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

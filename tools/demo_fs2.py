@@ -54,16 +54,10 @@ import numba
 import time
 # import quaternionic # For rotations
 # import spherical #For Wigner D matrix
-# import csv # file IO for projectFnlm
-# import os.path
 import h5py
-# import importlib
 import sys
-# import matplotlib.pyplot as plt
-# import matplotlib.colors as clr
 
-sys.path.insert(0,'../') #load the local version of vsdm
-# sys.path.append('../')
+# sys.path.insert(0,'../') #load the local version of vsdm
 
 import vsdm
 from vsdm.units import *

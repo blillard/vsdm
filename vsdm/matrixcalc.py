@@ -10,13 +10,9 @@ __all__ = ['McalI', 'MakeMcalI']
 
 import math
 import numpy as np
-# import scipy.special as spf
 import vegas # numeric integration
 import gvar # gaussian variables; for vegas
 import time
-# import quaternionic # For rotations
-# import spherical #For Wigner D matrix
-# import csv # file IO for projectFnlm
 import os.path
 import h5py
 
@@ -26,7 +22,6 @@ from .portfolio import *
 from .units import *
 from .analytic import *
 from .basis import haar_sph_value, tophat_value, Basis
-# from .haar import haar_sph_value
 
 
 #

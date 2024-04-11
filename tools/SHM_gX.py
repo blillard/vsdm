@@ -4,10 +4,10 @@ In the lab frame, the SHM velocity distribution is azimuthally symmetric,
 with 'z' aligned with the (instantaneous) Earth velocity w.r.t. the galactic
 center. Here, the Earth velocity is an annually-periodic function of time.
 
-Following Lewin & Smith (1996), "Review of mathematics, numerical factors,
-    and corrections for dark matter experiments based on elastic nuclear recoil"
+    Following Lewin & Smith (1996), "Review of mathematics, numerical factors,
+and corrections for dark matter experiments based on elastic nuclear recoil"
 with updated numerical values from 2105.00599 (D. Baxter et. al., "Recommended
-    conventions for reporting results from direct dark matter searches")
+conventions for reporting results from direct dark matter searches")
 
 Default values: (all velocities in km/s)
 - local standard of rest velocity: (0, 238., 0)
@@ -53,11 +53,13 @@ accurate interpolation for annual modulation analyses. E.g:
 (Expecting linear interpolation for gX(vE) to be more accurate than linear
 interpolation on gX(t).)
 
-Each version of the SHM is saved with a modelName SHM_d{n_days} for main()
+Each version of the SHM is saved with a modelName SHM_d{n_days} for main(),
+or SHM_v{vE_km_s} for alt_vE(). All of these versions of gX(t) can be saved
+to the same hdf5 file.
+    If a model of this name already exists in the hdf5 file, then any new
+coefficients will be saved to a database 'fnlm__2', 'fnlm__3', etc., using
+a naming scheme chosen by Portfolio.
 
-Recommendation for analyses that vary the other SHM parameters:
-* All versions of gX can be saved to the same HDF5 file.
-* I recommend distinguishing
 """
 import math
 import numpy as np
@@ -69,16 +71,10 @@ import time
 import datetime as dts #for calendar functions
 # import quaternionic # For rotations
 # import spherical #For Wigner D matrix
-# import csv # file IO for projectFnlm
-# import os.path
 import h5py # database format for mathcalI arrays
-import importlib
 import sys
-import matplotlib.pyplot as plt
-import matplotlib.colors as clr
 
-sys.path.insert(0,'../') #load the local version of vsdm
-# sys.path.append('../')
+# sys.path.insert(0,'../') #load the local version of vsdm
 
 import vsdm
 from vsdm.units import *

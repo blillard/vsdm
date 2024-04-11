@@ -9,9 +9,6 @@ __all__ = ['Portfolio', 'str_to_bdict', 'str_to_dnames', 'update_namedict',
 
 
 import numpy as np
-import time
-import csv
-# import os.path
 import h5py
 import gvar
 

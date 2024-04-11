@@ -4,13 +4,28 @@ Physics functions:
     fdm2_n: DM-SM particle scattering form factor, normalized to F(q=q0) = 1.
         Value of q0 = q0_fdm is defined in units.py in units of qBohr.
     g_k0: scattering event rate scaling factor with target exposure
-Physics functions require .units, e.g. for q0 and g_k0().
+These functions require .units, e.g. for q0 and g_k0().
+
+Mathematics:
+    plm_norm: normalized associated Legendre polynomials
+    ylm_real: real spherical harmonics (m<0 -> sin(m phi), m>0 -> cos(m phi))
+        Using plm_norm for substantially faster evaluation.
+    ylm_cx: complex-valued spherical harmonics (also using plm_norm).
+    sph_to_cart, cart_to_sph: Cartesian/spherical coordinate conversions.
+    NIntegrate: multipurpose numerical integrator. Methods include VEGAS
+        or gaussian quadrature from scipy.
 
 Utilities:
     makeNLMlist: produces complete list of (nlm) coefficients given
       values for nMax and ellMax, n=0,1...nMax and ell=0,1,...ellMax
     splitGVARarray: separates gvar valued matrix into f.mean, f.sdev matrices
     joinGVARarray: combines f.mean, f.sdev matrices into gvar valued matrix
+
+Interpolation:
+    Interpolator: 1d interpolation object, representing f(x) with a
+        piecewise-defined polynomial function.
+    Interpolator3d: represents a 3d function as a sum of spherical harmonics.
+        Contains a dictionary of 1d Interpolator objects, labeled by (l,m).
 """
 
 __all__ = ['g_k0', 'fdm2_n', 'mathsinc', 'dV_sph',
@@ -29,12 +44,6 @@ import scipy.special as spf
 import scipy.integrate as sint # gaussian quadrature
 import vegas # Monte Carlo integration
 import gvar # gaussian variables; for vegas
-# import time
-# import quaternionic # For rotations
-# import spherical #For Wigner D matrix
-# import csv # file IO for projectFnlm
-# import os.path
-# import h5py
 
 from .units import *
 
@@ -578,11 +587,6 @@ class Interpolator():
             sum += df_p_x[k] * (u-u0)**(k-p) / math.factorial(k-p)
         return sum
 
-    # def f_p_u(self, p, ulist):
-    #     if p==0:
-    #         return np.array([self.fU(u) for u in ulist])
-    #     else:
-    #         return np.array([self.df_du_p(p, u) for u in ulist])
 
 
 class Interpolator3d():
@@ -590,10 +594,12 @@ class Interpolator3d():
 
     Arguments:
         f_lm_dict: list of Interpolator objects, indexed by (lm)
+        complex: whether to use real or complex spherical harmonics
     """
 
-    def __init__(self, f_lm_dict):
+    def __init__(self, f_lm_dict, complex=False):
         self.f_lm = f_lm_dict
+        self.complex = complex
 
     def __call__(self, uSph):
         return self.fU(uSph)
@@ -602,10 +608,16 @@ class Interpolator3d():
         "Evaluating f(u) at a point uSph=(u,theta,phi)."
         (u,theta,phi) = uSph
         fu = 0.
-        for lm,Flm in self.f_lm.items():
-            (ell, m) = lm
-            f_lm_u = Flm(u)
-            fu += ylm_real(ell, m, theta, phi) * f_lm_u
+        if self.complex:
+            for lm,Flm in self.f_lm.items():
+                (ell, m) = lm
+                f_lm_u = Flm(u)
+                fu += ylm_cx(ell, m, theta, phi) * f_lm_u
+        else:
+            for lm,Flm in self.f_lm.items():
+                (ell, m) = lm
+                f_lm_u = Flm(u)
+                fu += ylm_real(ell, m, theta, phi) * f_lm_u
         return fu
 
     def flm_grid(self, ulist):
