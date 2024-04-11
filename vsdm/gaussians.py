@@ -203,7 +203,7 @@ class GBasis(Basis, GaussianF):
                 u_ij = (sigma2_j*ui + sigma2_i*uj)/(sigma2_i + sigma2_j)
                 u2_ij = u_ij.dot(u_ij)
                 exp_ij = np.exp(u2_ij/sigma2_ij - u2i/sigma2_i - u2j/sigma2_j)
-                sumE += c_i*c_j*exp_ij / (np.pi*1.5 * (sigma2_i+sigma2_j)**1.5)
+                sumE += c_i*c_j*exp_ij / (np.pi**1.5 * (sigma2_i+sigma2_j)**1.5)
         return sumE / self.u0**3
 
 
