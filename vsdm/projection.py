@@ -7,7 +7,7 @@ __all__ = ['ProjectFnlm']
 
 import math
 import numpy as np
-import scipy.special as spf
+# import scipy.special as spf
 import vegas # numeric integration
 import gvar # gaussian variables; for vegas
 import time

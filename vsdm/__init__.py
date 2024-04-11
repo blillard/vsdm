@@ -23,7 +23,7 @@ from .basis import *
 from .projection import *
 from .adaptive import *
 from .matrixcalc import *
-# wigner and ratecalc require 'spherical' and 'quaternionic' packages
+# only wigner and ratecalc require 'spherical' and 'quaternionic' packages
 from .wigner import *
 from .ratecalc import *
 
@@ -38,7 +38,8 @@ __version__ = "0.2.8"
 
 """
 Dependencies: the following packages are required:
-    math, time, os.path, csv, sys
+    math, time, csv, sys
+    numba
     numpy
     scipy
     gvar
@@ -46,12 +47,4 @@ Dependencies: the following packages are required:
     quaternionic
     spherical
     h5py
-
-Note: spherical and quaternionic packages may require specific
-    versions of Python. I have tested with Python 3.7 and 3.9.
-Only .wigner and .ratecalc require 'spherical'.
-- If a user does not need to perform rotations with the WignerG matrices,
-    can load 'vsdm' with the following lines commented out:
-# from .wigner import *
-# from .ratecalc import *
 """

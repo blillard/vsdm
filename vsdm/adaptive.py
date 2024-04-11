@@ -7,12 +7,12 @@ __all__ = ['HaarExtrapolate', 'AdaptiveFn', 'ExtrapolateFnlm']
 
 import math
 import numpy as np
-import scipy.special as spf
+# import scipy.special as spf
 import vegas # numeric integration
 import gvar # gaussian variables; for vegas
 import time
 import csv # file IO for projectFnlm
-import os.path
+# import os.path
 import h5py
 
 from .basis import f_tophat_to_sphwave

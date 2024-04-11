@@ -99,10 +99,6 @@ class HaarExtrapolate defines wavelet extrapolations for the full interval [0,1]
 """
 _haar_ = ['hindex_n', 'hindex_LM', 'haar_sph_value', 'haar_fn_x', 'haar_x123',
           'haar_inverse', 'haar_transform', 'sparse_haar_inverse']
-# _haartree_ = ['hs_subdivideAt', 'hs_nextGen', 'hs_list_all_n',
-#               'hs_trimAtLevel', 'hs_prevGen', 'hs_n_to_hstr',
-#               'hs_getBlock', 'hs_block_n', 'block_hstr', '_block_descendants'
-#               'HaarString']
 _haartree_ = ['HaarString', 'hs_n_to_hstr', 'hs_list_all_n']
 _hextrap_ = ['get_dfk_at_n', 'extrapolate_fn_from_dfk', 'dfk_block',
              'extrapolate_block_n', 'extrapolate_block_newgen',
@@ -112,7 +108,7 @@ __all__ = _haar_ + _haartree_ + _hextrap_
 
 import math
 import numpy as np
-import scipy.special as spf
+# import scipy.special as spf
 # import scipy.integrate as sint # gaussian quadrature
 # import vegas # Monte Carlo integration
 import gvar # gaussian variables; for vegas
