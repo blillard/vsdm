@@ -309,7 +309,8 @@ class Basis():
                 volume_nl = [[xmin, xmax], theta_region]
                 fnlm = NIntegrate(integrand_m0, volume_nl,
                                   integ_params, printheader=header)
-            return 2*math.pi * theta_Zn * fnlm
+                fnlm *= 2*math.pi * theta_Zn
+            return fnlm
         # else: fSph is a function of 3d uvec = (u, theta, phi)
         if not hasattr(f_uSph, 'phi_cyclic') or f_uSph.phi_cyclic in [0, None]:
             f_uSph.phi_cyclic = 1
