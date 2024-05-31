@@ -215,7 +215,7 @@ def haar_fn_x(n, x, dim=3):
         if 0 < x < 1:
             return haar_sph_value(n, dim=dim)
         elif x==0 or x==1:
-            return 0.5*haar_sph_value(n, dim=dim)
+            return haar_sph_value(n, dim=dim)
         else:
             return 0
     else:
@@ -225,12 +225,18 @@ def haar_fn_x(n, x, dim=3):
         elif x2 < x < x3:
             return haar_sph_value(n, dim=dim)[1]
         elif x==x1:
-            return 0.5*(haar_sph_value(n, dim=dim)[0])
+            if x1==0:
+                return (haar_sph_value(n, dim=dim)[0])
+            else:
+                return 0.5*(haar_sph_value(n, dim=dim)[0])
         elif x==x2:
             return 0.5*(haar_sph_value(n, dim=dim)[0]
                         + haar_sph_value(n, dim=dim)[1])
         elif x==x3:
-            return 0.5*(haar_sph_value(n, dim=dim)[1])
+            if x3==1:
+                return (haar_sph_value(n, dim=dim)[1])
+            else:
+                return 0.5*(haar_sph_value(n, dim=dim)[1])
         else:
             return 0
 
