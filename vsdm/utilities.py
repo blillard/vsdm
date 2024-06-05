@@ -135,10 +135,14 @@ def plm_norm(ell, m, x):
     # poch_minus = 1. # l!/(l-m)!
     if ell==0:
         return 1
+    if x < -1:
+        x = -1
+    elif x > 1:
+        x = 1
     x2 = x**2
     if x2==1:
         # Evaluate now, to avoid 1/sqrt(1-x**2) division errors.
-        return int(m==0) * (x)**(m%2)
+        return int(m==0) * (x)**(ell%2)
     sqrt_1_x2 = (1-x2)**0.5
     if m==0:
         # Upward recursion along m=0 to (l,0). Bonnet:
