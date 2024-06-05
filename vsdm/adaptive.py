@@ -18,11 +18,11 @@ AdaptiveFn: runs the iterative <f|nlm> integration for fixed (lm).
         are sufficiently accurate. The class method refineCompletely() repeats
         this until all blocks have converged.
 
-ExtrapolateFnlm: a ProjectFnlm object that runs AdaptiveFn for any number
-    of (l,m) modes.  
+ExtrapolateF: a ProjectFnlm object that runs AdaptiveFn for any number
+    of (l,m) modes.
 """
 
-__all__ = ['HaarExtrapolate', 'AdaptiveFn', 'ExtrapolateFnlm']
+__all__ = ['HaarExtrapolate', 'AdaptiveFn', 'ExtrapolateF']
 
 
 import math
@@ -652,7 +652,7 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
         return blocks_to_refine
 
 
-class ExtrapolateFnlm(ProjectFnlm, Interpolator3d):
+class ExtrapolateF(ProjectFnlm, Interpolator3d):
     """ProjectFnlm using wavelet extrapolation methods.
 
     Applies AdaptiveFn to each spherical harmonic mode, starting with an
@@ -693,7 +693,7 @@ class ExtrapolateFnlm(ProjectFnlm, Interpolator3d):
             if csvsave_name is not None:
                 self.writeFnlm_csv(csvsave_name,
                                    nlmlist=[nlm for nlm in import_fnlm.keys()])
-        Flm_n = {} #placeholding for saving AdaptiveFn objects.
+        # Flm_n = {} #placeholding for saving AdaptiveFn objects.
         for lm,power2 in power2_lm.items():
             power_lm = self.initialize_lm(lm, power2)
             if refine_at_init and power_lm > 0.05*atol_energy:

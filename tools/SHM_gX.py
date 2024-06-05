@@ -22,7 +22,7 @@ This code uses sys so that variables can be specified using the command line.
 Variables:
     n_days (float): time since last maximum in vE(t), measured in days (24h)
     l_max (int): largest value of 'ell' to calculate.
-    power2 (int): input for ExtrapolateFnlm.
+    power2 (int): input for ExtrapolateF.
         Evaluates the initial set of <f|n> using a grid of 2**power2 bins.
         Further <f|nlm> integrals are completed using the refine_lm() method.
 
@@ -202,7 +202,7 @@ def main(n_days, l_max, power2):
                         atol_f=0.01*atol_f,
                         rtol_f=epsilon)
     t0 = time.time()
-    wave_extp = vsdm.ExtrapolateFnlm(bdict, gModel, integ_params,
+    wave_extp = vsdm.ExtrapolateF(bdict, gModel, integ_params,
                                      power2_lm={}, p_order=3,
                                      epsilon=epsilon,
                                      atol_energy=atol_E,
@@ -263,16 +263,16 @@ def alt_vE(vE_km_s, l_max, power2):
                         atol_f=0.01*atol_f,
                         rtol_f=epsilon)
     t0 = time.time()
-    wave_extp = vsdm.ExtrapolateFnlm(bdict, gModel, integ_params,
-                                     power2_lm={}, p_order=3,
-                                     epsilon=epsilon,
-                                     atol_energy=atol_E,
-                                     atol_fnlm=atol_f,
-                                     max_depth=5,
-                                     refine_at_init=False,
-                                     f_type='gX',
-                                     csvsave_name=None,
-                                     use_gvar=True)
+    wave_extp = vsdm.ExtrapolateF(bdict, gModel, integ_params,
+                                  power2_lm={}, p_order=3,
+                                  epsilon=epsilon,
+                                  atol_energy=atol_E,
+                                  atol_fnlm=atol_f,
+                                  max_depth=5,
+                                  refine_at_init=False,
+                                  f_type='gX',
+                                  csvsave_name=None,
+                                  use_gvar=True)
 
     lm_list = [(l, 0) for l in range(l_max+1)]
     t0_lm = {}

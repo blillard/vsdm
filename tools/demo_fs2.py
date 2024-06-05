@@ -11,7 +11,7 @@ This example code takes three arguments: l_min, l_max, and power2, e.g.:
 
     python3 demo_fs2.py 0 12 9
 
-where power2 specifies the size of the initial grid for ExtrapolateFnlm
+where power2 specifies the size of the initial grid for ExtrapolateF
 (nCoeffs = 2**power2), and l_min and l_max specify which (l,m) harmonic modes
 should be calculated. For each l=l_min,l_min+2,...,l_max, only nonnegative even
 m=0,2,...,l are included in the list. (Odd l_min or l_max inputs are rounded
@@ -43,7 +43,7 @@ to the previously saved list, so there is no need to change the file name or
 any model name if more coefficients are added later. However, each physical
 model needs its own CSV file (likewise if the basis function parameters are
 changed, e.g. for different values of QMAX).
-    To turn off the CSV save option, set 'csvsave_name=None' in ExtrapolateFnlm.
+    To turn off the CSV save option, set 'csvsave_name=None' in ExtrapolateF.
 """
 import math
 import numpy as np
@@ -74,7 +74,7 @@ def fj2(nj, qLj):
     # mathsinc(x) = np.sinc(x/pi)
     s_minus = np.sinc(0.5*(qlp - nj + 1))/(1 + (nj-1)/qlp)
     s_plus = np.sinc(0.5*(qlp - nj - 1))/(1 + (nj+1)/qlp)
-    return (s_minus - s_plus)**2
+    return (s_minus + s_plus)**2
 
 ### MOMENTUM DISTRIBUTION EXAMPLES
 
@@ -182,16 +182,16 @@ def main(l_min, l_max, power2, modelname='box_4_7_10'):
                         atol_f=0.05*atol_f,
                         rtol_f=epsilon)
     t0 = time.time()
-    wave_extp = vsdm.ExtrapolateFnlm(bdict, fs2_model4, integ_params,
-                                     power2_lm={}, p_order=3,
-                                     epsilon=epsilon,
-                                     atol_energy=atol_E,
-                                     atol_fnlm=atol_f,
-                                     max_depth=5,
-                                     refine_at_init=False,
-                                     f_type='fs2',
-                                     csvsave_name='out/demo_fs2.csv',
-                                     use_gvar=True)
+    wave_extp = vsdm.ExtrapolateF(bdict, fs2_model4, integ_params,
+                                  power2_lm={}, p_order=3,
+                                  epsilon=epsilon,
+                                  atol_energy=atol_E,
+                                  atol_fnlm=atol_f,
+                                  max_depth=5,
+                                  refine_at_init=False,
+                                  f_type='fs2',
+                                  csvsave_name='out/demo_fs2.csv',
+                                  use_gvar=True)
     l2min = int(l_min/2)
     l2max = int(l_max/2)
     lm_list = [(2*i, 2*j) for i in range(l2min, l2max+1) for j in range(i+1)]
