@@ -538,7 +538,7 @@ def NIntegrate(integrand, volume, integ_params, printheader=None):
         integ_params['method'] = 'vegas'
     if 'verbose' not in integ_params:
         integ_params['verbose'] = False
-    if integ_params['verbose']==True and printheader is not False:
+    if integ_params['verbose']==True and printheader is not None:
         print(printheader)
     # Numerical Integration:
     if integ_params['method'] == 'vegas':
