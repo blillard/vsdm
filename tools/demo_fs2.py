@@ -57,7 +57,7 @@ import time
 import h5py
 import sys
 
-# sys.path.insert(0,'../') #load the local version of vsdm
+sys.path.insert(0,'../') #load the local version of vsdm
 
 import vsdm
 from vsdm.units import *
@@ -96,6 +96,24 @@ def fs2_nz(Lvec, nz, q_xyz):
 #     qL = qLx + qLy + qLz
     fx2 = fj2(1, qLx)
     fy2 = fj2(1, qLy)
+    fz2 = fj2(nz, qLz)
+    return fx2*fy2*fz2
+
+@numba.jit("double(double[:],int64[:],double[:])", nopython=True)
+def fs2_nxyz(Lvec, n_xyz, q_xyz):
+    # q: the DM particle velocity (cartesian, lab frame)
+    # L: the dimensions of the box
+    # nz = 2, 3, 4... The final state. (n=1 defined as ground state)
+    # fs2 is dimensionless
+    # note: np.sinc(x/pi) = sin(x) / (x). Included in defs. of qL below
+    [Lx, Ly, Lz] = Lvec
+    [qx, qy, qz] = q_xyz
+    [nx, ny, nz] = n_xyz
+    qLx = Lx*qx
+    qLy = Ly*qy
+    qLz = Lz*qz
+    fx2 = fj2(nx, qLx)
+    fy2 = fj2(ny, qLy)
     fz2 = fj2(nz, qLz)
     return fx2*fy2*fz2
 
@@ -148,6 +166,13 @@ def fs2_model4_cart(q_xyz):
     Lvec = np.array([4/qBohr, 7/qBohr, 10/qBohr])
     return fs2_nz(Lvec, 2, q_xyz)
 
+# Cartesian version of fs2 for higher excited state:
+@numba.jit("double(double[:])", nopython=True)
+def fs2_model4_cart_alt(q_xyz):
+    Lvec = np.array([4/qBohr, 7/qBohr, 10/qBohr])
+    n_xyz = np.array([3, 2, 1])
+    return fs2_nxyz(Lvec, n_xyz, q_xyz)
+
 
 @numba.jit("double(double[:])", nopython=True)
 def fs2_model4(qSph):
@@ -163,26 +188,47 @@ fs2_model4.z_even = True
 fs2_model4.phi_even = True
 fs2_model4.phi_cyclic = 2
 
+@numba.jit("double(double[:])", nopython=True)
+def fs2_model4_alt(qSph):
+    [q, theta, phi] = qSph
+    qx = q*math.sin(theta) * math.cos(phi)
+    qy = q*math.sin(theta) * math.sin(phi)
+    qz = q*math.cos(theta)
+    q_xyz = np.array([qx, qy, qz])
+    return fs2_model4_cart_alt(q_xyz)
+fs2_model4_alt.is_gaussian = False
+fs2_model4_alt.z_even = True
+fs2_model4_alt.phi_even = True
+fs2_model4_alt.phi_cyclic = 2
+
 
 
 
 def main(l_min, l_max, power2, modelname='box_4_7_10'):
     QMAX = 10*qBohr # Global value for q0=qMax for wavelets
-    bdict = dict(u0=QMAX, type='wavelet', uMax=QMAX)
+    basisQ = dict(u0=QMAX, type='wavelet', uMax=QMAX)
     """
     Note: here the precision goal 'atol_energy' is set based on an estimate of
-    the total distributional energy, approximately 1.0e-5 in this example.
-    This estimate comes from a previous evaluation of the l=0,2,...,24 modes.
+        the total L2 norm, approximately 3.5e-4 for the nz=2 excited state.
     """
-    energy = 9.887e-6
-    epsilon = 1e-4
+    use_alt_model = True
+    if use_alt_model:
+        fs2_model = fs2_model4_alt
+        csvname = 'out/demo_fs2_alt.csv'
+        modelname += '_alt'
+    else:
+        fs2_model = fs2_model4
+        csvname = 'out/demo_fs2.csv'
+    energy = 3.5e-4
+    epsilon = 1e-6
     atol_E = energy * epsilon
     atol_f = 0.05 * math.sqrt(atol_E)
     integ_params = dict(method='gquad', verbose=True,
                         atol_f=0.05*atol_f,
                         rtol_f=epsilon)
     t0 = time.time()
-    wave_extp = vsdm.ExtrapolateF(bdict, fs2_model4, integ_params,
+
+    wave_extp = vsdm.ExtrapolateF(basisQ, fs2_model, integ_params,
                                   power2_lm={}, p_order=3,
                                   epsilon=epsilon,
                                   atol_energy=atol_E,
@@ -190,7 +236,7 @@ def main(l_min, l_max, power2, modelname='box_4_7_10'):
                                   max_depth=5,
                                   refine_at_init=False,
                                   f_type='fs2',
-                                  csvsave_name='out/demo_fs2.csv',
+                                  csvsave_name=csvname,
                                   use_gvar=True)
     l2min = int(l_min/2)
     l2max = int(l_max/2)
@@ -226,7 +272,11 @@ elif len(sys.argv)==4:
 elif len(sys.argv)==5:
     main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]),
          modelname=sys.argv[4])
+elif len(sys.argv)==5:
+    main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]),
+         modelname=sys.argv[4])
 else:
     print("Error: wrong number of variables")
 
+# python3 demo_fs2.py 32 36 10
 #
