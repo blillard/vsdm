@@ -599,11 +599,11 @@ class ProjectFnlm(GBasis):
             writer = csv.writer(csvfile, delimiter=',',
                                 quoting=csv.QUOTE_MINIMAL)
             if makeHeader:
-                header = [r'#', 'n', 'l', 'm', 'f.mean', 'f.sdev']
-                writer.writerow(header)
                 bparams = [r'#'] + [str(lbl) + ': ' + str(prm)
                                      for lbl,prm in self.basis.items()]
                 writer.writerow(bparams)
+                header = [r'#', 'n', 'l', 'm', 'f.mean', 'f.sdev']
+                writer.writerow(header)
             if nlmlist is None:
                 nlmlist = self.getNLMlist()
             for nlm in nlmlist:

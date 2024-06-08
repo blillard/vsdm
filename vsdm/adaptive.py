@@ -73,7 +73,10 @@ class HaarExtrapolate(Interpolator):
         n_list = [n for n in self.f_n.keys()]
         evaluated = hs_n_to_hstr(n_list, inclusive=False)
         self.evaluated = HaarString(hstr=evaluated)
-        p_regions = self.evaluated.prevGen(level=self.p_depth-1)
+        if self.p_depth==0:
+            p_regions = self.evaluated.prevGen(level=0)
+        else:
+            p_regions = self.evaluated.prevGen(level=self.p_depth-1)
         self.p_regions = HaarString(hstr=p_regions)
         self.p_blocks = {}
         for n in self.p_regions:
@@ -595,6 +598,9 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
         Note: a block is added to 'diverging' UNLESS its dfDx_p is
             monotonically decreasing.
         """
+        if self.p_order==0:
+            print("This method requires p_order > 0.")
+            return
         dfDx_p_list = self.get_fp_DeltaX_list()
         converging = []
         diverging = []
@@ -720,19 +726,23 @@ class ExtrapolateF(ProjectFnlm, Interpolator3d):
             self.converged_lm[lm] = True
         else:
             self.converged_lm[lm] = False
-        converging,diverging = Flm_n.diagnose_convergence(verbose=self.verbose)
-        ngensLeft = np.array([divg[1] for divg in diverging])
-        convergedFraction = len(converging)/(len(converging)+len(diverging))
-        print("Converged fraction: {:.3g}%".format(convergedFraction*100))
-        if convergedFraction < 0.5:
-            print("! Most blocks have unconverged Taylor series.")
-            print("Recommend re-initializing with finer grid spacing.")
-        if len(diverging) > 0:
-            print("Average N_gens until convergence: {}".format(ngensLeft.mean()))
-            print("Maximum N_gens until convergence: {}".format(ngensLeft.max()))
-        else:
-            print("All blocks have converging Taylor series.")
         self.t_eval += Flm_n.t_eval
+        if self.p_order==0:
+            return Flm_n.energy_fx2()
+        # print prediction for convergence of polynomial extrapolation:
+        if self.verbose:
+            converging,diverging = Flm_n.diagnose_convergence(verbose=self.verbose)
+            ngensLeft = np.array([divg[1] for divg in diverging])
+            convergedFraction = len(converging)/(len(converging)+len(diverging))
+            print("Converged fraction: {:.3g}%".format(convergedFraction*100))
+            if convergedFraction < 0.5:
+                print("! Most blocks have unconverged Taylor series.")
+                print("Recommend re-initializing with finer grid spacing.")
+            if len(diverging) > 0:
+                print("Average N_gens until convergence: {}".format(ngensLeft.mean()))
+                print("Maximum N_gens until convergence: {}".format(ngensLeft.max()))
+            else:
+                print("All blocks have converging Taylor series.")
         return Flm_n.energy_fx2()
 
     def refine_lm(self, lm, max_depth=None):
@@ -765,6 +775,8 @@ class ExtrapolateF(ProjectFnlm, Interpolator3d):
     def check_extrap_accuracy(self, lm, verbose=True):
         return self.f_lm[lm].check_extrap_accuracy(verbose=verbose)
 
-
+    def __call__(self, uSph):
+        [u, theta, phi] = uSph 
+        return self.fU([u/self.u0, theta, phi])
 
 #
