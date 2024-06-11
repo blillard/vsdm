@@ -93,8 +93,10 @@ class Basis():
             Not strictly mandatory. Defaults to dim=3 if missing.
     Methods and variables:
         .basis: dict with (type, u0, uMax, uiList, etc.)
-        radRn(n, ell,u): radial function r^{ell}_n(u), with dimensionful u
+        _r_n_x(n, ell,x): radial function r^{ell}_n(u), with dimensionless x
             Passes dimensionless u/u0 to appropriate basis function
+        r_n(n, ell,u): radial function r^{ell}_n(u), with dimensionful u
+            _r_n_x(n, ell,u/u0)
         phiNLM(nlm,xvec): basis function (n,l,m), for xvec=[x, theta, phi]
             x = u/u0
             Normalized: integral(d3x * phi(nlm) * phi(nlm)) = 1
@@ -147,10 +149,10 @@ class Basis():
             assert('uMax' in bdict), "Missing mandatory parameter: 'uMax'."
         return updates
 
-    def radRn(self, n, ell, x):
+    def _r_n_x(self, n, ell, x):
         """Dimensionless radial function r_n^(ell)(x), x=u/u0.
 
-        Normalized: integral(x**2 dx radRn**2) = 1.
+        Normalized: integral(x**2 dx _r_n_x**2) = 1.
         ell: specifies type of function for Laguerre, Bessel
         n: index n=0,1,2,...nMax.
         """
@@ -168,7 +170,7 @@ class Basis():
 
 
     def _u_baseOfSupport_n(self, n, getMidpoint=False):
-        """Returns the range in u for which radRn(u/u0) is nonzero
+        """Returns the range in u for which _r_n_x(u/u0) is nonzero
 
         For wavelets, also provides the mid-point if (getMidpoint)
             (Used for analytic MathcalI.)
@@ -192,8 +194,8 @@ class Basis():
         else:
             return [0, self.uMax]
 
-    def _baseOfSupport_n(self, n, getMidpoint=False):
-        """Returns the range in x for which radRn(x) is nonzero
+    def _x_baseOfSupport(self, n, getMidpoint=False):
+        """Returns the range in x for which _r_n_x(x) is nonzero
 
         For wavelets, also provides the mid-point if (getMidpoint)
             (Used for analytic MathcalI.)
@@ -218,14 +220,32 @@ class Basis():
             return [0, self.xMax]
 
 
-    def phiNLM(self, nlm, xvec):
+    def _phi_x(self, nlm, xvec):
         """Dimensionless basis function |nlm> = r_n(x)*Y_lm(theta,phi).
 
-        Normalized: integral(x**2 dx dOmega * phiNLM**2) = 1.
+        Normalized: integral(x**2 dx dOmega * _phi_x**2) = 1.
         """
         (n, ell, m) = nlm # index: a 3-tuple
         [x, theta, phi] = xvec # spherical coordinate: a vector
-        return self.radRn(n, ell, x) * ylm_real(ell, m, theta, phi)
+        return self._r_n_x(n, ell, x) * ylm_real(ell, m, theta, phi)
+
+    def r_n(self, n, ell, u):
+        """Dimensionless radial function r_n^(ell)(x), x=u/u0.
+
+        Normalized: integral(u**2 du r_n(u)**2) = u0**3.
+        ell: specifies type of function for Laguerre, Bessel
+        n: index n=0,1,2,...nMax.
+        """
+        return self._r_n_x(n, ell, u/self.u0)
+
+    def phi_nlm(self, nlm, uvec):
+        """Dimensionless basis function |nlm> = r_n(u)*Y_lm(theta,phi).
+
+        Normalized: integral(u**2 du dOmega * u0**(-3) * phi_nlm**2) = 1.
+        """
+        (n, ell, m) = nlm # index: a 3-tuple
+        [u, theta, phi] = uvec # spherical coordinate: a vector
+        return self.r_n(n, ell, u) * ylm_real(ell, m, theta, phi)
 
 
     def get1nlm(self, n):
@@ -282,9 +302,9 @@ class Basis():
         (n, l, m) = nlm
         if self.basis['type']=='wavelet' and n!=0:
             # Split the integral in two for these cases:
-            [xmin, xmid, xmax] = self._baseOfSupport_n(n, getMidpoint=True)
+            [xmin, xmid, xmax] = self._x_baseOfSupport(n, getMidpoint=True)
         else:
-            [xmin, xmax] = self._baseOfSupport_n(n, getMidpoint=False)
+            [xmin, xmax] = self._x_baseOfSupport(n, getMidpoint=False)
         # Check for azimuthal symmetry:
         if hasattr(f_uSph, 'phi_symmetric') and f_uSph.phi_symmetric==True:
             if m!=0 or (f_uSph.z_even and (l % 2 != 0)):
@@ -296,7 +316,7 @@ class Basis():
                 xvec = (x_rth[0], x_rth[1], phi)
                 uvec = np.array([x_rth[0]*self.u0, x_rth[1], phi])
                 return (dV_sph(xvec) * f_uSph(uvec)
-                        * self.phiNLM(nlm, xvec))
+                        * self._phi_x(nlm, xvec))
             if self.basis['type']=='wavelet' and n!=0:
                 volume_A = [[xmin,xmid], theta_region] # 2d
                 volume_B = [[xmid,xmax], theta_region] # 2d
@@ -325,7 +345,7 @@ class Basis():
         def integrand_fnlm(xvec):
             uvec = np.array([xvec[0]*self.u0, xvec[1], xvec[2]])
             return (dV_sph(xvec) * f_uSph(uvec)
-                    * self.phiNLM(nlm, xvec))
+                    * self._phi_x(nlm, xvec))
         if self.basis['type']=='wavelet' and n!=0:
             volume_A = [[xmin, xmid], theta_region, phi_region]
             volume_B = [[xmid, xmax], theta_region, phi_region]

@@ -159,8 +159,8 @@ class McalI():
             print("Calculating <V|I|Q> for (l,nv,nq): ", lnvq)
         # Establish integration region: check whether the integrand vanishes
         #     if QVrange does not include any v > vMin(q), then mcalI = 0.
-        Qrange = self.Q._baseOfSupport_n(nq, getMidpoint=False)
-        Vrange = self.V._baseOfSupport_n(nv, getMidpoint=False)
+        Qrange = self.Q._u_baseOfSupport(nq, getMidpoint=False)
+        Vrange = self.V._u_baseOfSupport(nv, getMidpoint=False)
         QVrange = [Qrange, Vrange] #Integration volume
         # if v_type is not 'laguerre' and q_type is not 'laguerre':
         [qA, qB] = Qrange
@@ -186,8 +186,8 @@ class McalI():
             if v < vMinq:
                 return 0
             else:
-                partQ = self.Q.radRn(nq, ell, q) * fdm2_n(q, fdm_n)
-                partV = self.V.radRn(nv, ell, v) * plm_norm(ell,0,vMinq/v)
+                partQ = self.Q.r_n(nq, ell, q) * fdm2_n(q, fdm_n)
+                partV = self.V.r_n(nv, ell, v) * plm_norm(ell,0,vMinq/v)
                 return self.kI * q*v/(q0*v0)**2 * partQ * partV
             # Integrand units cancel against units from QV integration area
         integrator = vegas.Integrator(QVrange)
@@ -237,11 +237,11 @@ class McalI():
                         *(q0_fdm/qStar)**(2*fdm_n))
         n_regions = [1,1]
         if v_type=='tophat':
-            [v1, v2] = V._baseOfSupport_n(nv, getMidpoint=False)
+            [v1, v2] = V._x_baseOfSupport(nv, getMidpoint=False)
             A_v = tophat_value(v1/v0, v2/v0) #normalize to 0<x<1
             n_regions[0] = 1
         elif v_type=='wavelet':
-            [v1, v2, v3] = V._baseOfSupport_n(nv, getMidpoint=True)
+            [v1, v2, v3] = V._x_baseOfSupport(nv, getMidpoint=True)
             if nv==0:
                 A_v = haar_sph_value(nv)
                 n_regions[0] = 1
@@ -249,11 +249,11 @@ class McalI():
                 [A_v, B_v] = haar_sph_value(nv) #already normalized
                 n_regions[0] = 2
         if q_type=='tophat':
-            [q1, q2] = Q._baseOfSupport_n(nq, getMidpoint=False)
+            [q1, q2] = Q._x_baseOfSupport(nq, getMidpoint=False)
             A_q = tophat_value(q1/q0, q2/q0) #normalize to 0<x<1
             n_regions[1] = 1
         elif q_type=='wavelet':
-            [q1, q2, q3] = Q._baseOfSupport_n(nq, getMidpoint=True)
+            [q1, q2, q3] = Q._x_baseOfSupport(nq, getMidpoint=True)
             if nq==0:
                 A_q = haar_sph_value(nq)
                 n_regions[1] = 1

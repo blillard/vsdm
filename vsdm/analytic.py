@@ -89,7 +89,8 @@ def t_ln_vq_int(l, n, v12_star, q12_star):
     x1 = q1**2
     x2 = q2**2
     sum = 0.
-    for k in range(l+1):
+    for k in range(l%2, l+1, 2):
+        # only terms with (l-k)%2==0 contribute to the sum:
         term_k = 2**(l-k) * spf.gamma(0.5*(k+1+l)) / spf.gamma(0.5*(k+1-l))
         if k==2:
             termV = math.log(v2/v1) / (2 * math.factorial(l-2))
@@ -115,7 +116,7 @@ def u_ln_vq_int(l, n, v2_star, q12_star):
     x1 = q1**2
     x2 = q2**2
     sum = 0.
-    for k in range(l+1):
+    for k in range(l%2, l+1, 2):
         term_k = (spf.gamma(0.5*(k+1+l)) / spf.gamma(0.5*(k+1-l))
                   * 2**(l-k)/(math.factorial(k) * math.factorial(l-k)))
         if k==2:

@@ -89,7 +89,7 @@ class GBasis(Basis, GaussianF):
         gvec_list: specifies the GaussianF function.
             If None or [], this is a 'null gaussian'
     Methods:
-        Gnl_i: evaluates G_nli for (u_i, sigma_i) and self.radRn(n, l)
+        Gnl_i: evaluates G_nli for (u_i, sigma_i) and self._r_n_x(n, l)
             can save result to self.G_nli_dict
         g_nlm: returns <g|nlm> for this function
             <g|nlm> = sum_i (c_i Y_lm(u_i) G_nli)
@@ -102,7 +102,7 @@ class GBasis(Basis, GaussianF):
         self.G_nli_dict = {} # format: G_nli_array[n,l,i] = G_nli
 
     def Gnl_i(self, n, ell, i, integ_params, saveGnli=True):
-        "Integrates Gnl_i for radRn(n,l) function."
+        "Integrates Gnl_i for _r_n_x(n,l) function."
         gvec = self.gvec_list[i]
         (c_i, uSph_i, sigma_i) = gvec
         (u_i, theta_i, phi_i) = uSph_i
@@ -113,10 +113,10 @@ class GBasis(Basis, GaussianF):
         headerB = "\tGnl_i(B) for (n,l,i): {}".format((n, ell, i))
         def integrand_Gnl(x1d):
             [x] = x1d
-            return normG_nli_integrand(self.radRn, x_i, xsigma_i, n, ell, x)
+            return normG_nli_integrand(self._r_n_x, x_i, xsigma_i, n, ell, x)
         if self.basis['type']=='wavelet' and n!=0:
             # split integrand into two regions...
-            [xmin, xmid, xmax] = self._baseOfSupport_n(n, getMidpoint=True)
+            [xmin, xmid, xmax] = self._x_baseOfSupport(n, getMidpoint=True)
             # Volume here in terms of u, not u/u0!
             volume_A = [[xmin, xmid]] # 1d
             volume_B = [[xmid, xmax]] # 1d
@@ -126,7 +126,7 @@ class GBasis(Basis, GaussianF):
                                 printheader=headerB)
             mathGnl = mGnl_A + mGnl_B
         else:
-            [xmin, xmax] = self._baseOfSupport_n(n, getMidpoint=False)
+            [xmin, xmax] = self._x_baseOfSupport(n, getMidpoint=False)
             volume_x = [[xmin, xmax]] # 1d
             mathGnl = NIntegrate(integrand_Gnl, volume_x, integ_params,
                                  printheader=header)
