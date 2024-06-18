@@ -33,7 +33,7 @@ __all__ = (units.__all__ + utilities.__all__ + haar.__all__
            + gaussians.__all__ + adaptive.__all__
            + portfolio.__all__ + analytic.__all__)
 
-__version__ = "0.2.10"
+__version__ = "0.3.0"
 
 
 """

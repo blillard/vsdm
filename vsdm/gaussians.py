@@ -3,10 +3,10 @@
 Functions:
     normG_nli_integrand: analytic radial integrand for '\mathcal G'
     GaussianF: a class for functions that are defined as sums of gaussians
-    GBasis: a Basis class with additional methods for GaussianF functions
+    Gnli: a Basis class with additional methods for GaussianF functions
 """
 
-__all__ = ['GaussianF', 'GBasis', 'normG_nli_integrand']
+__all__ = ['GaussianF', 'Gnli', 'normG_nli_integrand']
 
 import math
 import numpy as np
@@ -32,7 +32,7 @@ def normG_nli_integrand(radR_nlu, u_i, sigma_i, n, ell, u):
         ivefact = math.sqrt(8/z) * spf.ive(ell+0.5, z)
     measure = u**2/sigma_i**3
     expfact = math.exp(-(u-u_i)**2/sigma_i**2)
-    return measure * expfact * ivefact * radR_nlu(n, ell, u)
+    return measure * expfact * ivefact * radR_nlu(n, u, l=ell)
 
 
 class GaussianF():
@@ -81,7 +81,7 @@ class GaussianF():
         return [(gvec[0]*gFactor, gvec[1], gvec[2]) for gvec in self.gvec_list]
 
 
-class GBasis(Basis, GaussianF):
+class Gnli(Basis, GaussianF):
     """Tools for projecting GaussianF functions onto an |nlm> basis.
 
     Input:
@@ -90,16 +90,16 @@ class GBasis(Basis, GaussianF):
             If None or [], this is a 'null gaussian'
     Methods:
         Gnl_i: evaluates G_nli for (u_i, sigma_i) and self._r_n_x(n, l)
-            can save result to self.G_nli_dict
+            can save result to self.G_nli
         g_nlm: returns <g|nlm> for this function
             <g|nlm> = sum_i (c_i Y_lm(u_i) G_nli)
-            Reads value from G_nli_dict if possible, otherwise runs Gnl_i
-        G_nli_array: formats G_nli_dict into 3d numpy array
+            Reads value from G_nli if possible, otherwise runs Gnl_i
+        G_nli_array: formats G_nli into 3d numpy array
     """
     def __init__(self, bdict, gvec_list):
         Basis.__init__(self, bdict)
         GaussianF.__init__(self, gvec_list) # can be None or []
-        self.G_nli_dict = {} # format: G_nli_array[n,l,i] = G_nli
+        self.G_nli = {} # format: G_nli_array[n,l,i] = G_nli
 
     def Gnl_i(self, n, ell, i, integ_params, saveGnli=True):
         "Integrates Gnl_i for _r_n_x(n,l) function."
@@ -131,26 +131,26 @@ class GBasis(Basis, GaussianF):
             mathGnl = NIntegrate(integrand_Gnl, volume_x, integ_params,
                                  printheader=header)
         if saveGnli:
-            self.G_nli_dict[(n,ell,i)] = mathGnl
+            self.G_nli[(n,ell,i)] = mathGnl
         return mathGnl
 
     def getGnlm(self, nlm, integ_params, saveGnli=True):
-        "The result <g|nlm>. Reads from G_nli_dict when possible."
+        "The result <g|nlm>. Reads from G_nli when possible."
         (n, ell, m) = nlm
         # Note: c_i does not affect value of Gnl_i. It appears here in cY_i
         sum_g = 0.0
         for i,gvec in enumerate(self.gvec_list):
             (c_i, uSph_i, sigma_i) = gvec
             (u_i, theta_i, phi_i) = uSph_i
-            if (n,ell,i) in self.G_nli_dict.keys():
-                gnli = self.G_nli_dict[(n,ell,i)]
+            if (n,ell,i) in self.G_nli.keys():
+                gnli = self.G_nli[(n,ell,i)]
             else:
                 gnli = self.Gnl_i(n, ell, i, integ_params, saveGnli=saveGnli)
             cY_i = c_i * ylm_real(ell, m, theta_i, phi_i)
             sum_g += cY_i * gnli
         return sum_g / self.u0**3
 
-    def updateGnlm(self, nlm, integ_params, saveGnli=True):
+    def _doGnlm(self, nlm, integ_params, saveGnli=True):
         "The result <g|nlm>. Forces numeric evaluation."
         (n, ell, m) = nlm
         # Note: c_i does not affect value of Gnl_i. It appears here in cY_i
@@ -164,13 +164,13 @@ class GBasis(Basis, GaussianF):
         return sum_g  / self.u0**3
 
     def G_nli_array(self, nMax, ellMax, use_gvar=False):
-        "Creates np.array from G_nli_dict"
+        "Creates np.array from G_nli"
         if use_gvar:
             arraySize = [nMax+1, ellMax+1, self.N_gaussians, 2]
         else:
             arraySize = [nMax+1, ellMax+1, self.N_gaussians]
         g_array = np.zeros(arraySize)
-        for nli,value in self.G_nli_dict.items():
+        for nli,value in self.G_nli.items():
             (n,l,i) = nli
             if n <= nMax and l <= ellMax:
                 if use_gvar:

@@ -1,4 +1,4 @@
-"""Wavelet-harmonic projection of a four-gaussian gX model.
+Gnli"""Wavelet-harmonic projection of a four-gaussian gX model.
 
 """
 import math
@@ -50,14 +50,14 @@ gvec_list_4 = gaussian_stream_sum(gi, vWsph_i, sigma_i)
 
 VMAX = 960.*km_s # Global value for v0=vMax for wavelets
 basisV = dict(u0=VMAX, type='wavelet', uMax=VMAX)
-gXmodel_4 = vsdm.GBasis(basisV, gvec_list_4)
+gXmodel_4 = vsdm.Gnli(basisV, gvec_list_4)
 
 # Define a function to convert GaussianF(gX) into GaussianF(tilde_gX),
 # for dimensionless function tilde_gX = u0**3 * gX,
 # where u0 is the vsdm.Basis.u0 scale factor
 def gX_to_tgX(gauF, u0):
     tgauF_vecs = gauF.rescaleGaussianF(u0**3)
-    return vsdm.GBasis(gauF.basis, tgauF_vecs)
+    return vsdm.Gnli(gauF.basis, tgauF_vecs)
 
 gXmodel = gX_to_tgX(gXmodel_4, VMAX)
 gvec_tilde_4 = gXmodel.gvec_list
@@ -81,16 +81,16 @@ def main(n_max, l_max):
                         atol_f=0.01*atol_f,
                         rtol_f=epsilon)
     t0 = time.time()
-    wave_extp = vsdm.ExtrapolateF(bdict, gXmodel, integ_params,
-                                  power2_lm={}, p_order=3,
-                                  epsilon=epsilon,
-                                  atol_energy=atol_E,
-                                  atol_fnlm=atol_f,
-                                  max_depth=5,
-                                  refine_at_init=False,
-                                  f_type='gX',
-                                  csvsave_name=csvout,
-                                  use_gvar=True)
+    wave_extp = vsdm.WaveletFnlm(bdict, gXmodel, integ_params,
+                                 power2_lm={}, p_order=3,
+                                 epsilon=epsilon,
+                                 atol_energy=atol_E,
+                                 atol_fnlm=atol_f,
+                                 max_depth=5,
+                                 refine_at_init=False,
+                                 f_type='gX',
+                                 csvsave_name=csvout,
+                                 use_gvar=True)
 
     lm_list = [(l, m) for l in range(l_max+1) for m in range(-l, l+1)]
     t0_lm = {}

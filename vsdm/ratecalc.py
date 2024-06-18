@@ -48,7 +48,7 @@ def _mcalK(gV, fsQ, mI, ellMax=None, use_gvar=False, sparse=False):
     """Combines <V|I|Q>, <gX|V>, and <Q|fgs2> into matrices K(ell).
 
     Arguments:
-        gV, fsQ: ProjectFnlm instances
+        gV, fsQ: Fnlm instances
         mI: MakeMcalI instance
         use_gvar=True for gvar-valued matrix coefficients
         sparse: if True, then evaluates
@@ -132,7 +132,7 @@ def tr_mcalK(gV, fsQ, mI, use_gvar=False):
     """Combines <V|I|Q>, <gX|V>, and <Q|fgs2> into matrices K(ell).
 
     Arguments:
-        gV, fsQ: ProjectFnlm instances
+        gV, fsQ: Fnlm instances
         mI: MakeMcalI instance
         use_gvar=True for gvar-valued matrix coefficients
     Returns:
@@ -253,8 +253,8 @@ class RateCalc():
                 mu_l[ell] = np.trace(gellT @ self.mcalK[ell])
             return mu_l
         #else: sparse version
-        nlmVlist = self.gV.getNLMlist()
-        nlmQlist = self.fsQ.getNLMlist()
+        nlmVlist = self.gV.f_nlm.keys()
+        nlmQlist = self.fsQ.f_nlm.keys()
         for nlmV in nlmVlist:
             [nv, ell, mv] = nlmV
             if self.center_Z2 and ell%2!=0: continue

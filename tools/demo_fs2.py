@@ -25,7 +25,7 @@ for l_min=0, l_max=12, power2=9.
 'box_4_7_10'. Running this program multiple times (e.g. with different l ranges)
 will invoke the Portfolio naming scheme for conflicting database names,
 e.g. 'fnlm', 'fnlm__2', 'fnlm__3', etc. These coefficients can be imported
-by running ProjectFnlm.importFnlm() once for each dataset, using non-default
+by running Fnlm.importFnlm() once for each dataset, using non-default
 d_fnlm and lm_ix values. E.g: d_fnlm='fnlm__2', lm_ix='lm_index__2', etc.
 
     Alternatively, the model name can be changed through the command line, by
@@ -228,16 +228,16 @@ def main(l_min, l_max, power2, modelname='box_4_7_10'):
                         rtol_f=epsilon)
     t0 = time.time()
 
-    wave_extp = vsdm.ExtrapolateF(basisQ, fs2_model, integ_params,
-                                  power2_lm={}, p_order=3,
-                                  epsilon=epsilon,
-                                  atol_energy=atol_E,
-                                  atol_fnlm=atol_f,
-                                  max_depth=5,
-                                  refine_at_init=False,
-                                  f_type='fs2',
-                                  csvsave_name=csvname,
-                                  use_gvar=True)
+    wave_extp = vsdm.WaveletFnlm(basisQ, fs2_model, integ_params,
+                                 power2_lm={}, p_order=3,
+                                 epsilon=epsilon,
+                                 atol_energy=atol_E,
+                                 atol_fnlm=atol_f,
+                                 max_depth=5,
+                                 refine_at_init=False,
+                                 f_type='fs2',
+                                 csvsave_name=csvname,
+                                 use_gvar=True)
     l2min = int(l_min/2)
     l2max = int(l_max/2)
     lm_list = [(2*i, 2*j) for i in range(l2min, l2max+1) for j in range(i+1)]

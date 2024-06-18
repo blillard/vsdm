@@ -22,7 +22,7 @@ Utilities:
     joinGVARarray: combines f.mean, f.sdev matrices into gvar valued matrix
 
 Interpolation:
-    Interpolator: 1d interpolation object, representing f(x) with a
+    Interpolator1d: 1d interpolation object, representing f(x) with a
         piecewise-defined polynomial function.
     Interpolator3d: represents a 3d function as a sum of spherical harmonics.
         Contains a dictionary of 1d Interpolator objects, labeled by (l,m).
@@ -35,7 +35,7 @@ __all__ = ['g_k0', 'fdm2_n', 'mathsinc', 'dV_sph',
            'sph_to_cart', 'cart_to_sph', 'compare_index_to_shape',
            '_map_int_to_index', 'gX_to_tgX', 'assign_indices',
            'getLpower', 'getLMpower', 'getNLMpower', 'NIntegrate',
-           'Interpolator', 'Interpolator3d']
+           'Interpolator1d', 'Interpolator3d']
 
 import math
 import numba
@@ -548,7 +548,7 @@ def NIntegrate(integrand, volume, integ_params, printheader=None):
     return out
 
 
-class Interpolator():
+class Interpolator1d():
     """Interpolated representation of a 1d function f(u).
 
     Arguments:
@@ -597,12 +597,12 @@ class Interpolator3d():
     """Interpolated representation of a 3d function f(u) = sum_lm f_lm(u).
 
     Arguments:
-        f_lm_dict: list of Interpolator objects, indexed by (lm)
+        fI_lm_dict: list of Interpolator1d objects, indexed by (lm)
         complex: whether to use real or complex spherical harmonics
     """
 
-    def __init__(self, f_lm_dict, complex=False):
-        self.f_lm = f_lm_dict
+    def __init__(self, fI_lm_dict, complex=False):
+        self.fI_lm = fI_lm_dict
         self.complex = complex
 
     def __call__(self, uSph):
@@ -613,27 +613,31 @@ class Interpolator3d():
         (u,theta,phi) = uSph
         fu = 0.
         if self.complex:
-            for lm,Flm in self.f_lm.items():
+            for lm,Flm in self.fI_lm.items():
                 (ell, m) = lm
-                f_lm_u = Flm(u)
-                fu += ylm_cx(ell, m, theta, phi) * f_lm_u
+                fI_lm_u = Flm(u)
+                fu += ylm_cx(ell, m, theta, phi) * fI_lm_u
         else:
-            for lm,Flm in self.f_lm.items():
+            for lm,Flm in self.fI_lm.items():
                 (ell, m) = lm
-                f_lm_u = Flm(u)
-                fu += ylm_real(ell, m, theta, phi) * f_lm_u
+                fI_lm_u = Flm(u)
+                fu += ylm_real(ell, m, theta, phi) * fI_lm_u
         return fu
 
-    def flm_grid(self, ulist):
-        """Evaluates all f_lm(u) for all [u in ulist].
+    def flm_u(self, lm, u):
+        "Evaluating <f|lm>(u) at radial coordinate u."
+        return self.fI_lm[lm](u)
 
-        Output is a 2d numpy array, with rows lm ordered by self.f_lm.keys().
+    def flm_grid(self, ulist):
+        """Evaluates all fI_lm(u) for all [u in ulist].
+
+        Output is a 2d numpy array, with rows lm ordered by self.fI_lm.keys().
         """
-        flmgrid = np.zeros([len(f_lm.keys()), len(ulist)])
+        flmgrid = np.zeros([len(fI_lm.keys()), len(ulist)])
         ix = 0
-        for lm,Flm in self.f_lm.items():
-            f_lm_ug = np.array([Flm(u) for u in ulist])
-            flmgrid[ix] = f_lm_ug
+        for lm,Flm in self.fI_lm.items():
+            fI_lm_ug = np.array([Flm(u) for u in ulist])
+            flmgrid[ix] = fI_lm_ug
             ix += 1
         return flmgrid
 

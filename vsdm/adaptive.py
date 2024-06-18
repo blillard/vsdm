@@ -1,4 +1,4 @@
-"""An adaptive version of ProjectFnlm using wavelet extrapolation.
+"""An adaptive version of EvaluateFnlm using wavelet extrapolation.
 
 HaarExtrapolate: Extrapolation for a 1d wavelet expansion. Identifies a
     pth-order Taylor series for 'blocks' of adjacent wavelets.
@@ -18,11 +18,11 @@ AdaptiveFn: runs the iterative <f|nlm> integration for fixed (lm).
         are sufficiently accurate. The class method refineCompletely() repeats
         this until all blocks have converged.
 
-ExtrapolateF: a ProjectFnlm object that runs AdaptiveFn for any number
+WaveletFnlm: a EvaluateFnlm object that runs AdaptiveFn for any number
     of (l,m) modes.
 """
 
-__all__ = ['HaarExtrapolate', 'AdaptiveFn', 'ExtrapolateF']
+__all__ = ['HaarExtrapolate', 'AdaptiveFn', 'WaveletFnlm']
 
 
 import math
@@ -31,14 +31,14 @@ import gvar # gaussian variables; for vegas
 import time
 
 from .basis import f_tophat_to_sphwave
-from .projection import ProjectFnlm
+from .projection import EvaluateFnlm
 from .utilities import *
 from .haar import *
 from .portfolio import *
 
 
 
-class HaarExtrapolate(Interpolator):
+class HaarExtrapolate(Interpolator1d):
     """Applies wavelet extrapolation to a list of evaluated <f_lm|n> coefficients.
 
     Input:
@@ -53,7 +53,7 @@ class HaarExtrapolate(Interpolator):
     self.p_regions: subdivides [0,1] into regions with different Taylor series
         p_regions is a list of HaarBlock headers
 
-    Uses Interpolator to provide f(x) for dimensionless x on [0,1].
+    Uses Interpolator1d to provide f(x) for dimensionless x on [0,1].
 
     Methods:
     get_f_p_list: the list of f(x) and its derivatives at the center of each block,
@@ -62,7 +62,7 @@ class HaarExtrapolate(Interpolator):
         with the integrated inner products, self.f_n[n]
     refresh_all: Assuming f_n has been modified, re-calculates 'evaluated'
         and 'p_regions' from scratch.
-    __call__(x), inherited from Interpolator. Returns interpolated f(x).
+    __call__(x), inherited from Interpolator1d. Returns interpolated f(x).
     """
     def __init__(self, f_n_dict, p_order=3, dim=3):
         self.f_n = f_n_dict
@@ -82,11 +82,11 @@ class HaarExtrapolate(Interpolator):
         for n in self.p_regions:
             pblock = HaarBlock(n, p_order=self.p_order, dim=self.dim)
             self.p_blocks[n] = pblock
-        # make the Interpolator:
+        # make the Interpolator1d:
         x_bounds = self.p_regions.regions_x()
         x0_vals = self.p_regions.midpoints_x()
         f_p_list = self.get_f_p_list()
-        Interpolator.__init__(self, x_bounds, x0_vals, f_p_list)
+        Interpolator1d.__init__(self, x_bounds, x0_vals, f_p_list)
         # Get the block-level power "spectrum"
         self.block_power = []
         for n in self.p_regions:
@@ -189,14 +189,14 @@ class HaarExtrapolate(Interpolator):
             # Get the block-level power "spectrum"
             dE_dn = self.power_region(n)
             self.block_power += [dE_dn]
-        # Update Interpolator objects:
+        # Update Interpolator1d objects:
         self.u_bounds = self.p_regions.regions_x()
         self.u0_vals = self.p_regions.midpoints_x()
         self.f_p_list = self.get_f_p_list()
         return
 
     def addTo_f_n(self, new_f_n):
-        "Modify self.f_n and update the block lists and Interpolator."
+        "Modify self.f_n and update the block lists and Interpolator1d."
         for n,fn in new_f_n.items():
             self.f_n[n] = fn
         self.refresh_all()
@@ -260,8 +260,8 @@ class HaarExtrapolate(Interpolator):
 
 
 
-class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
-    """Adaptive version of ProjectFnlm, for fixed (l,m).
+class AdaptiveFn(EvaluateFnlm,HaarExtrapolate):
+    """Adaptive version of EvaluateFnlm, for fixed (l,m).
 
     Input parameters:
     - lm: fixed (l,m) for this part of the calculation
@@ -280,11 +280,11 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
     Objects:
     - self.hstr: the HaarString tracking the evaluated <f_lm|n> coefficients
     - self.f_n: the usual list of <f|nlm>, with lm given by self.lm.
-        Note: self.f_nlm from ProjectFnlm is redundant with self.f_n.
+        Note: self.f_nlm from EvaluateFnlm is redundant with self.f_n.
 
     Methods:
     - note that the inherited HaarString.subdivideAt() updates self.hstr.
-        This method is only used in conjunction with ProjectFnlm.updateFnlm(),
+        This method is only used in conjunction with EvaluateFnlm.updateFnlm(),
         which updates self.f_nlm.
 
     Evaluates higher-n wavelet <f|nlm> coefficients for fixed (l,m)
@@ -349,7 +349,7 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
 
 
     """
-    def __init__(self, bdict, fSph, lm, integ_params, power2=5, p_order=3,
+    def __init__(self, basis, fSph, lm, integ_params, power2=5, p_order=3,
                  import_fn=None, epsilon=1e-4, atol_energy=None, atol_fnlm=None,
                  f_type=None, csvsave_name=None, use_gvar=True):
         t0 = time.time()
@@ -408,16 +408,16 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
         self.integ_e['atol'] = integ_params['atol_e']
         self.integ_e['rtol'] = integ_params['rtol_e']
 
-        assert('u0' in bdict), "Missing mandatory parameter: 'u0'."
-        u0 = bdict['u0']
-        assert('type' in bdict), "Missing mandatory parameter: 'type'."
-        uType = bdict['type']
-        assert('uMax' in bdict), "Missing mandatory parameter: 'uMax'."
-        uMax = bdict['uMax']
+        assert('u0' in basis), "Missing mandatory parameter: 'u0'."
+        u0 = basis['u0']
+        assert('type' in basis), "Missing mandatory parameter: 'type'."
+        uType = basis['type']
+        assert('uMax' in basis), "Missing mandatory parameter: 'uMax'."
+        uMax = basis['uMax']
 
-        ProjectFnlm.__init__(self, bdict, fSph, self.integ_f, nlmlist=[],
-                             f_type=f_type, csvsave_name=csvsave_name,
-                             use_gvar=use_gvar)
+        EvaluateFnlm.__init__(self, basis, fSph, self.integ_f, nlmlist=[],
+                              f_type=f_type, csvsave_name=csvsave_name,
+                              use_gvar=use_gvar)
 
         """Step 0. If import_fn is not None, check whether it has enough entries
         to skip Steps 1-3.
@@ -439,7 +439,7 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
             f_n = self.coarsegridInitialization(gridb)
 
 
-        # init HaarExtrapolate after ProjectFnlm: dim is defined in bdict.
+        # init HaarExtrapolate after EvaluateFnlm: dim is defined in basis.
         HaarExtrapolate.__init__(self, f_n, p_order=p_order, dim=self.dim)
         # Now self.f_n, self.p_regions, etc are defined.
 
@@ -466,10 +466,10 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
             print("Calculating <f|nlm> for (l,m)={} on {} bins".format(self.lm,nMax+1))
             print("\t atol={}, rtol={}".format(self.integ_f['atol'],
                                                self.integ_f['rtol']))
-        coarseGrid = ProjectFnlm(gridb, self.fSph, self.integ_f, nlmlist=nlmlist,
-                                 f_type=self.f_type,
-                                 csvsave_name=None,
-                                 use_gvar=self.use_gvar)
+        coarseGrid = EvaluateFnlm(gridb, self.fSph, self.integ_f, nlmlist=nlmlist,
+                                  f_type=self.f_type,
+                                  csvsave_name=None,
+                                  use_gvar=self.use_gvar)
         self.tGrid = coarseGrid.t_eval
         if self.verbose:
             print("Integration time for coarse grid:", self.tGrid)
@@ -510,7 +510,7 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
         If overwrite==False and <f|nlm> is already in self.f_n, then the
         saved value of f_n is used. (No need to run updateFnlm.)
         This is most likely to happen when using import_fn to read in self.f_nlm
-        values, either from another ProjectFnlm instance or from a CSV file.
+        values, either from another EvaluateFnlm instance or from a CSV file.
 
         Checks the extrapolation accuracy, and updates self.blocks_to_refine.
         Updates the self.p_regions and self.evaluated HaarStrings
@@ -658,23 +658,23 @@ class AdaptiveFn(ProjectFnlm,HaarExtrapolate):
         return blocks_to_refine
 
 
-class ExtrapolateF(ProjectFnlm, Interpolator3d):
-    """ProjectFnlm using wavelet extrapolation methods.
+class WaveletFnlm(EvaluateFnlm, Interpolator3d):
+    """EvaluateFnlm, augmented with wavelet extrapolation methods.
 
     Applies AdaptiveFn to each spherical harmonic mode, starting with an
         initial list that can subsequently be expanded.
-    Inherits ProjectFnlm to keep a centralized self.f_nlm coefficient list
+    Inherits EvaluateFnlm to keep a centralized self.f_nlm coefficient list
 
     Arguments:
-    - ProjectFnlm parameters. The intermediate steps (AdaptiveFn) will use gvar,
-        but the high-level ProjectFnlm won't if use_gvar=False.
+    - EvaluateFnlm parameters. The intermediate steps (AdaptiveFn) will use gvar,
+        but the high-level EvaluateFnlm won't if use_gvar=False.
     - AdaptiveFn parameters: p_order, epsilon, atol_energy.
     - power2_lm: dict of lm modes to initialize by default, potentially
         with different values of power2 for each one.
     - import_fnlm: can read in previously evaluated <f|nlm> coefficients,
         to be passed to AdaptiveFn.
     """
-    def __init__(self, bdict, fSph, integ_params, power2_lm={}, p_order=3,
+    def __init__(self, basis, fSph, integ_params, power2_lm={}, p_order=3,
                  max_depth=5, refine_at_init=False, import_fnlm=None,
                  epsilon=1e-6, atol_energy=None, atol_fnlm=None,
                  f_type=None, csvsave_name=None, use_gvar=True):
@@ -684,11 +684,11 @@ class ExtrapolateF(ProjectFnlm, Interpolator3d):
         self.atol_fnlm = atol_fnlm
         self.max_depth = max_depth # for refineCompletely() cutoff.
         self.converged_lm = {}
-        Interpolator3d.__init__(self, {}) #self.f_lm is empty at init.
-        # Initialize the high-level ProjectFnlm object, with empty nlmlist:
-        ProjectFnlm.__init__(self, bdict, fSph, integ_params, nlmlist=[],
-                             f_type=f_type, csvsave_name=csvsave_name,
-                             use_gvar=use_gvar)
+        Interpolator3d.__init__(self, {}) #self.fI_lm is empty at init.
+        # Initialize the high-level EvaluateFnlm object, with empty nlmlist:
+        EvaluateFnlm.__init__(self, basis, fSph, integ_params, nlmlist=[],
+                              f_type=f_type, csvsave_name=csvsave_name,
+                              use_gvar=use_gvar)
         if import_fnlm is not None:
             for nlm,f in import_fnlm.items():
                 if type(f) is gvar._gvarcore.GVar and not use_gvar:
@@ -704,7 +704,7 @@ class ExtrapolateF(ProjectFnlm, Interpolator3d):
             power_lm = self.initialize_lm(lm, power2)
             if refine_at_init and power_lm > 0.05*atol_energy:
                 self.refine_lm(lm, max_depth=max_depth)
-        # saves Flm_n as self.f_lm
+        # saves Flm_n as self.fI_lm
 
     def initialize_lm(self, lm, power2):
         "Run AdaptiveFn.__init__ for this lm. Returns the P_lm power."
@@ -719,7 +719,7 @@ class ExtrapolateF(ProjectFnlm, Interpolator3d):
                            import_fn=import_fn, use_gvar=self.use_gvar,
                            epsilon=self.epsilon, atol_energy=self.atol_energy,
                            f_type=self.f_type, csvsave_name=self.csvsave_name)
-        self.f_lm[lm] = Flm_n
+        self.fI_lm[lm] = Flm_n
         for nlm,fnlm in Flm_n.f_nlm.items():
             self.f_nlm[nlm] = fnlm
         if len(Flm_n.blocks_to_refine)==0:
@@ -749,8 +749,8 @@ class ExtrapolateF(ProjectFnlm, Interpolator3d):
         t0 = time.time()
         if max_depth is None:
             max_depth = self.max_depth
-        all_good = self.f_lm[lm].refineCompletely(max_depth=max_depth)
-        for nlm,fnlm in self.f_lm[lm].f_nlm.items():
+        all_good = self.fI_lm[lm].refineCompletely(max_depth=max_depth)
+        for nlm,fnlm in self.fI_lm[lm].f_nlm.items():
             self.f_nlm[nlm] = fnlm
         if all_good:
             self.converged_lm[lm] = True
@@ -763,20 +763,17 @@ class ExtrapolateF(ProjectFnlm, Interpolator3d):
         self.t_eval += time.time() - t0
 
     def diagnose_convergence(self, lm, verbose=True):
-        if lm in self.f_lm.keys():
-            self.f_lm[lm].diagnose_convergence(verbose=verbose)
+        if lm in self.fI_lm.keys():
+            self.fI_lm[lm].diagnose_convergence(verbose=verbose)
         else:
-            print("Error: lm not in self.f_lm.")
+            print("Error: lm not in self.fI_lm.")
         return
 
     def blocks_to_refine(self, lm):
-        return self.f_lm[lm].blocks_to_refine
+        return self.fI_lm[lm].blocks_to_refine
 
     def check_extrap_accuracy(self, lm, verbose=True):
-        return self.f_lm[lm].check_extrap_accuracy(verbose=verbose)
+        return self.fI_lm[lm].check_extrap_accuracy(verbose=verbose)
 
-    def __call__(self, uSph):
-        [u, theta, phi] = uSph 
-        return self.fU([u/self.u0, theta, phi])
 
 #

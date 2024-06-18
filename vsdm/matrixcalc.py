@@ -31,7 +31,7 @@ class McalI():
 
     Arguments:
         V, Q: Basis instances for velocity and momentum spaces
-            Can be supplied as 'bdict' dictionary, or as class instance
+            Can be supplied as 'basis' dictionary, or as class instance
         modelDMSM: dict describing DM and SM particle physics and DeltaE
             DeltaE: energy transfer (for kinematics)
             mX: DM particle mass
@@ -186,8 +186,8 @@ class McalI():
             if v < vMinq:
                 return 0
             else:
-                partQ = self.Q.r_n(nq, ell, q) * fdm2_n(q, fdm_n)
-                partV = self.V.r_n(nv, ell, v) * plm_norm(ell,0,vMinq/v)
+                partQ = self.Q.r_n(nq, q, l=ell) * fdm2_n(q, fdm_n)
+                partV = self.V.r_n(nv, v, l=ell) * plm_norm(ell,0,vMinq/v)
                 return self.kI * q*v/(q0*v0)**2 * partQ * partV
             # Integrand units cancel against units from QV integration area
         integrator = vegas.Integrator(QVrange)
@@ -404,7 +404,7 @@ class McalI():
             typeName = self.f_type
         folio = Portfolio(hdf5file, extra_types=[typeName])
         dataIlvq, attrs = folio.read_gvar(typeName, modelName, d_pair=d_pair)
-        bdict_info = str_to_bdict(attrs)
+        basis_info = str_to_bdict(attrs)
         dshape = np.shape(dataIlvq)
         # if needed, pad self.mcalI to accommodate data:
         corner_lnvq = [d+1 for d in dshape]
