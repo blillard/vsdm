@@ -19,8 +19,9 @@ import spherical #For Wigner D matrix
 class WignerG():
     """Assembles the real form of the Wigner D matrix.
 
-    Argument:
+    Arguments:
         ellMax: largest ell for which G(R) is needed
+        center_Z2: if True, then only need even values of ell
 
     Returns:
         self.Glist, self.rotations: dictionaries for saving G_ell matrices
@@ -62,20 +63,20 @@ class WignerG():
             gL[ell] = np.zeros([2*ell+1, 2*ell+1])
             if self.center_Z2 and ell%2!=0: continue
             # mp=m=0:
-            ix00 = [ell, ell]
+            ix00 = (ell, ell)
             gL[ell][ix00] = np.real(mxD[self.wigD.Dindex(ell, 0, 0)])
             # mp=0, m>0
             for m in range(1, ell+1):
-                ix0p = [ell, ell+m]
-                ix0m = [ell, ell-m]
+                ix0p = (ell, ell+m)
+                ix0m = (ell, ell-m)
                 d_0p = mxD[self.wigD.Dindex(ell, 0, m)]
                 d_0m = mxD[self.wigD.Dindex(ell, 0, -m)]
                 gL[ell][ix0m] = np.sqrt(2) * np.imag(d_0m)
                 gL[ell][ix0p] = np.sqrt(2) * np.real(d_0p)
             # mp>0, m=0:
             for mp in range(1,ell+1):
-                ixm0 = [ell-mp, ell]
-                ixp0 = [ell+mp, ell]
+                ixm0 = (ell-mp, ell)
+                ixp0 = (ell+mp, ell)
                 d_m0 = mxD[self.wigD.Dindex(ell, -mp, 0)]
                 d_p0 = mxD[self.wigD.Dindex(ell, mp, 0)]
                 gL[ell][ixm0] = -np.sqrt(2) * np.imag(d_m0)
@@ -83,10 +84,10 @@ class WignerG():
             # mp>0, m>0:
             for mp in range(1, ell+1):
                 for m in range(1, ell+1):
-                    ixpp = [ell+mp, ell+m]
-                    ixpm = [ell+mp, ell-m]
-                    ixmp = [ell-mp, ell+m]
-                    ixmm = [ell-mp, ell-m]
+                    ixpp = (ell+mp, ell+m)
+                    ixpm = (ell+mp, ell-m)
+                    ixmp = (ell-mp, ell+m)
+                    ixmm = (ell-mp, ell-m)
                     d_pp = mxD[self.wigD.Dindex(ell, mp, m)]
                     d_mp = mxD[self.wigD.Dindex(ell, -mp, m)]
                     d_pm = mxD[self.wigD.Dindex(ell, mp, -m)]

@@ -69,9 +69,6 @@ def _mcalK(gV, fsQ, mI, ellMax=None, use_gvar=False, sparse=False):
         ellMax = np.min([ellMax, ellMaxGFI])
     nvMax = np.min([gV.nMax, mI.mI_shape[1]-1])
     nqMax = np.min([fsQ.nMax, mI.mI_shape[2]-1])
-    # one or both of these objects might have azimuthal symmetry, m=0 for all ell
-    v_phi_symm = gV.phi_symmetric
-    q_phi_symm = fsQ.phi_symmetric
     theta_Zn = 1
     if gV.center_Z2 or fsQ.center_Z2:
         theta_Zn = 2 # only even values of ell are relevant
@@ -97,7 +94,9 @@ def _mcalK(gV, fsQ, mI, ellMax=None, use_gvar=False, sparse=False):
                 mathKell[ell][ix_K] += gV_nlm * Ilvq * fsQ_nlm
         return mathKell
     ### ELSE:
+    # this _makeFarray does use_gvar only if gV.use_gvar:
     fLMn_gV = gV._makeFarray(use_gvar=use_gvar)
+    # this _makeFarray does use_gvar only if fsQ.use_gvar
     fLMn_fsQ = fsQ._makeFarray(use_gvar=use_gvar)
     # trim the widths of the arrays to the minimum (ellMax, nvMax, nqMax)
     fLMn_gV = gV.f_lm_n[:, 0:nvMax+1]
@@ -111,18 +110,31 @@ def _mcalK(gV, fsQ, mI, ellMax=None, use_gvar=False, sparse=False):
     for ell in range(ellMax+1):
         if ell%theta_Zn!=0: continue
         for mv in range(-ell, ell+1):
+            # get index for f_lm_n[lm -> x] vectors
+            if (ell,mv) in gV.lm_index.values():
+                xlm_v = gV.lm_index.index((ell,mv))
+            else:
+                continue
             for mq in range(-ell, ell+1):
                 # map (mv, mq) to the index ix_K for the matrix K(ell):
                 ix_K = [ell+mv, ell+mq]
-                if (v_phi_symm and mv!=0) or (q_phi_symm and mq!=0):
-                    # leave these entries equal to zero or gvar(0,0)
-                    continue
                 # get index for f_lm_n[lm -> x] vectors
-                xlm_v = _LM_to_x(ell, mv, phi_symmetric=v_phi_symm)
-                xlm_q = _LM_to_x(ell, mq, phi_symmetric=q_phi_symm)
-                # combine vectors with mcalI(ell) matrix:
-                gvecM = fLMn_gV[xlm_v]
-                fvecM = fLMn_fsQ[xlm_q]
+                if (ell,mq) in fsQ.lm_index.values():
+                    xlm_q = fsQ.lm_index.index((ell,mq))
+                else:
+                    continue
+                # combine vectors with mcalI(ell) matrix.
+                # may have one or both of gV and fsQ with use_gvar==True.
+                if use_gvar and gV.use_gvar:
+                    gvecM = np.array([gvar.gvar(flmn[0], flmn[1])
+                                      for flmn in fLMn_gV[xlm_v]])
+                else:
+                    gvecM = fLMn_gV[xlm_v]
+                if use_gvar and fsQ.use_gvar:
+                    fvecM = np.array([gvar.gvar(flmn[0], flmn[1])
+                                      for flmn in fLMn_fsQ[xlm_q]])
+                else:
+                    fvecM = fLMn_fsQ[xlm_q]
                 mxI = mcI[ell]
                 mathKell[ell][ix_K] = gvecM @ mxI @ fvecM
     return mathKell
@@ -158,8 +170,6 @@ def tr_mcalK(gV, fsQ, mI, use_gvar=False):
     else:
         mcI = mI.mcalI[0:ellMax+1, 0:nvMax+1, 0:nqMax+1]
     # one or both of these arrays might have azimuthal symmetry, m=0 for all ell
-    v_phi_symm = gV.phi_symmetric
-    q_phi_symm = fsQ.phi_symmetric
     if use_gvar:
         tr_Kl = gvar.gvar(1,0)*np.zeros([ellMax+1], dtype='object')
     else:
@@ -168,15 +178,26 @@ def tr_mcalK(gV, fsQ, mI, use_gvar=False):
         trk = 0.0
         for m in range(-ell, ell+1):
             # map (mv, mq) to the index ix_K for the matrix K(ell):
-            if (v_phi_symm or q_phi_symm) and m!=0:
-                # leave these entries equal to zero or gvar(0,0)
-                continue
             # get index for f_lm_n[lm -> x] vectors
-            xlm_v = _LM_to_x(ell, m, phi_symmetric=v_phi_symm)
-            xlm_q = _LM_to_x(ell, m, phi_symmetric=q_phi_symm)
+            if (ell,mv) in gV.lm_index.values():
+                xlm_v = gV.lm_index.index((ell,mv))
+            else:
+                continue
+            if (ell,mq) in fsQ.lm_index.values():
+                xlm_q = fsQ.lm_index.index((ell,mq))
+            else:
+                continue
             # combine vectors with mcalI(ell) matrix:
-            gvecM = fLMn_gV[xlm_v]
-            fvecM = fLMn_fsQ[xlm_q]
+            if use_gvar and gV.use_gvar:
+                gvecM = np.array([gvar.gvar(flmn[0], flmn[1])
+                                  for flmn in fLMn_gV[xlm_v]])
+            else:
+                gvecM = fLMn_gV[xlm_v]
+            if use_gvar and fsQ.use_gvar:
+                fvecM = np.array([gvar.gvar(flmn[0], flmn[1])
+                                  for flmn in fLMn_fsQ[xlm_q]])
+            else:
+                fvecM = fLMn_fsQ[xlm_q]
             mxI = mcI[ell]
             trk += gvecM @ mxI @ fvecM
         tr_Kl[ell] = trk

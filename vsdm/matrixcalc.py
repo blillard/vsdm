@@ -129,12 +129,12 @@ class McalI():
         self.mI_shape = larger_shape
 
 
-    def getI_lvq(self, lnvq, vegas_params):
+    def getI_lvq(self, lnvq, integ_params):
         """Calculates I^(ell)_{vq} integrals for this (V,Q) basis.
 
         Arguments:
             lnvq = (ell,nv,nq): basis vector indices for <V| and |Q>
-            vegas_params: integration parameters neval, nitn, etc.
+            integ_params: integration parameters neval, nitn, etc.
         Returns:
             mcalI^(ell)_{nv,nq}(modelDMSM)
         """
@@ -147,12 +147,12 @@ class McalI():
         fdm_n = self.modelDMSM['fdm_n'] # DM-SM scattering form factor index
         mSM = self.modelDMSM['mSM'] # SM particle mass (mElec)
         DeltaE = self.modelDMSM['DeltaE'] # DM -> SM energy transfer
-        nitn_init = vegas_params['nitn_init'] # reduced mass
-        nitn = vegas_params['nitn']
-        neval = vegas_params['neval']
-        verbose = vegas_params['verbose']
-        if 'neval_init' in vegas_params:
-            neval_init = vegas_params['neval_init']
+        nitn_init = integ_params['nitn_init'] # reduced mass
+        nitn = integ_params['nitn']
+        neval = integ_params['neval']
+        verbose = integ_params['verbose']
+        if 'neval_init' in integ_params:
+            neval_init = integ_params['neval_init']
         else:
             neval_init = neval
         if verbose:
@@ -280,19 +280,19 @@ class McalI():
             print("\t Ilvq = ", Ilvq)
         return Ilvq
 
-    def updateIlvq(self, lnvq, integrationInfo, analytic=False):
+    def updateIlvq(self, lnvq, integ_params, analytic=False):
         """Calculates Ilvq(l,nv,nq) using numeric or analytic method.
 
         Arguments:
             lnvq: index (l, nv, nq)
-            integrationInfo: a dict of vegas_params style if analytic==False,
+            integ_params: a dict of integ_params style if analytic==False,
                 or a single entry {'verbose': bool} for analytic==True
                 If empty, assume verbose=False.
             analytic: whether to try analytic method or not
         """
         if analytic:
-            if 'verbose' in integrationInfo:
-                verbose = integrationInfo['verbose']
+            if 'verbose' in integ_params:
+                verbose = integ_params['verbose']
             else:
                 verbose = False
             # try getI_lvq_analytic:
@@ -306,18 +306,18 @@ class McalI():
                 return Ilvq
         #else: analytic method not possible
         analytic = False
-        Ilvq = self.getI_lvq(lnvq, integrationInfo)
+        Ilvq = self.getI_lvq(lnvq, integ_params)
         if self.use_gvar:
             self.mcalI_gvar[lnvq] = Ilvq
         self.mcalI[lnvq] = Ilvq.mean
         return Ilvq
 
-    def update_mcalI(self, lnvq_max, integrationInfo, analytic=True):
+    def update_mcalI(self, lnvq_max, integ_params, analytic=True):
         """Calculates entire Ilvq array in series, up to lnvq_max.
 
         Arguments:
             lnvq_max: (l_max, nv_max, nq_max)
-            integrationInfo: a dict of vegas_params style if analytic==False,
+            integ_params: a dict of integ_params style if analytic==False,
                 or a single entry {'verbose': bool} for analytic==True
                 If empty, assume verbose=False.
             analytic: whether to try analytic method or not
@@ -328,7 +328,7 @@ class McalI():
             for nv in range(nv_max + 1):
                 for nq in range(nq_max + 1):
                     lnvq = (l, nv, nq)
-                    self.updateIlvq(lnvq, integrationInfo, analytic=analytic)
+                    self.updateIlvq(lnvq, integ_params, analytic=analytic)
                     # this style sets analytic -> False if it is attempted on
                     # incompatible basis functions
         self.evaluated = True
@@ -425,7 +425,7 @@ class MakeMcalI(McalI):
 
     Arguments:
         V, Q, modelDMSM, mI_shape: for McalI
-        integrationInfo: dict for vegas_params, or {'verbose': verbose}
+        integ_params: dict for integ_params, or {'verbose': verbose}
             if analytic==True
         analytic: whether to attempt an analytic evaluation of mcalI
         lnvq_list: which (l,nv,nq) to evaluate during initialization
@@ -436,14 +436,14 @@ class MakeMcalI(McalI):
     """
     # Reserving DeltaE, mX, FDM2 for parallelization
     # Note: for variable nMax(ell) or variable precision, run init() with ellMax=0, then do add_ell for ell=1..ellMax
-    def __init__(self, V, Q, modelDMSM, mI_shape, integrationInfo={},
+    def __init__(self, V, Q, modelDMSM, mI_shape, integ_params={},
                  analytic=True, lnvq_list=None, f_type=TNAME_mcalI,
                  hdf5file=None, modelName=None):
         McalI.__init__(self, V, Q, modelDMSM, mI_shape=mI_shape, f_type=f_type)
         # adds mI_shape, f_type to self.
         if lnvq_list is not None:
             for lnvq in lnvq_list:
-                self.updateIlvq(lnvq, integrationInfo, analytic=analytic)
+                self.updateIlvq(lnvq, integ_params, analytic=analytic)
             # save empty mcalI array to hdf5 if no lnvq_list provided
             if hdf5file is not None:
                 dname_mean, dname_sdev = self.writeMcalI(hdf5file, modelName)
@@ -473,10 +473,10 @@ class MakeMcalI(McalI):
         self.nvMax = mI_shape[1]
         self.nqMax = mI_shape[2]
 
-    def add_lnvqs(self, lnvq_list, integrationInfo={}):
+    def add_lnvqs(self, lnvq_list, integ_params={}):
         newdata = {}
         for lnvq in lnvq_list:
-            Ilvq = self.updateIlvq(lnvq, integrationInfo,
+            Ilvq = self.updateIlvq(lnvq, integ_params,
                                    analytic=self.analytic)
             newdata[lnvq] = Ilvq
         # wait until the end to write the list to hdf5

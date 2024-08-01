@@ -27,39 +27,6 @@ from .utilities import *
 from .portfolio import *
 
 
-
-# class Fn(Basis):
-#     """Stores the <f|(phi)> coefficients of a function f in basis (phi).
-#
-#     Assuming no particular organizing principle for the basis functions phi_n,
-#         i.e. no spherical harmonics.
-#     This structure is suitable for 1d functions f(u), basis functions r_n.
-#     Because Fn is inherited by the main (3d) Fnlm class, the <f|n> coefficients
-#     are saved in a dictionary named 'f_nlm'.
-#
-#     """
-#     def __init__(self, basis, f_type=None, use_gvar=False):
-#         Basis.__init__(self, basis)
-#         self.use_gvar = use_gvar
-#         self.f_nlm = {}
-#         self.t_eval = 0.
-#         self.f2_energy = 0.
-#
-#     def updateFnlm(self, fSph, n, integ_params):
-#         """Calculates <f|n> for new (n), or overwrites existing <f|n>."""
-#         # Good for adding nlm to the list.
-#         # Or, recalculate f_nlm with better precision in integ_params.
-#         t0 = time.time()
-#         self.update_maxes(nlm)
-#         fnlm = self.getFnlm(fSph, n, integ_params, saveGnli=True)
-#         if not self.use_gvar:
-#             fnlm = fnlm.mean
-#         self.f_nlm[n] = fnlm
-#         self.f2_energy += fnlm**2
-#         t1 = time.time() - t0
-#         self.t_eval += t1
-#         return fnlm #in case anyone wants it
-
 class Fnlm(Basis, Interpolator3d):
     """Stores the <f|nlm> coefficients for a function f.
 
