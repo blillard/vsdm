@@ -31,6 +31,17 @@ class WignerG():
         G_ell(R, save=True): calculates G for specified rotation
             if save: add rotation to self.rotations, G_ell to self.Glist
             returns dictionary gL, gL[ell] = G(ell), gL['R'] = R
+
+    NOTE: Convention for Wigner D matrix:
+    In terms of the Wigner "little d" matrix, d^(ell), my D^(ell) matrix is:
+
+        D^(ell)_{m',m} = exp(-i m' alpha) * d^(ell)_{m'm}(beta) * exp(-i m gamma)
+
+    for an active rotation with z-y-z Euler angles (alpha, beta, gamma).
+    This is intended to match the convention in the documentation of 'spherical'.
+    However, spherical v1.0.14 appears to use the opposite definition of R
+    (i.e. passive vs active). So, WignerG.G_l here calls wigD.D(1/R) using the
+    inverse rotation, to correct for this difference.
     """
     def __init__(self, ellMax, center_Z2=False):
         self.wigD = spherical.Wigner(ellMax)
@@ -54,11 +65,13 @@ class WignerG():
         Output:
         * gL, a dict of G(ell) matrices, gL[ell] = G(ell).
             Includes gL['R'] entry, the value of the quaternion R
+
         """
         gL = {}
         gL['R'] = R
         # R is a quaternion: doesn't need to be a unit quaternion
-        mxD = self.wigD.D(R)
+        # mxD = self.wigD.D(R)
+        mxD = self.wigD.D(1/R) # match the definition of D(R) in spherical v1.0
         for ell in range(self.ellMax+1):
             gL[ell] = np.zeros([2*ell+1, 2*ell+1])
             if self.center_Z2 and ell%2!=0: continue
