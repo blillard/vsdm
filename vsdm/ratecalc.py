@@ -89,7 +89,7 @@ def _mcalK(gV, fsQ, mI, ellMax=None, use_gvar=False, sparse=False):
                 (nq, ellq, mq) = q_nlm
                 if ellq != ell: continue
                 if fsQ_nlm==0: continue
-                ix_K = [ell+mv, ell+mq] # index for mcalK[ell]
+                ix_K = (ell+mv, ell+mq) # index for mcalK[ell]
                 Ilvq = mI.getI_lvq_analytic((ell, nv, nq))
                 mathKell[ell][ix_K] += gV_nlm * Ilvq * fsQ_nlm
         return mathKell
@@ -111,15 +111,15 @@ def _mcalK(gV, fsQ, mI, ellMax=None, use_gvar=False, sparse=False):
         if ell%theta_Zn!=0: continue
         for mv in range(-ell, ell+1):
             # get index for f_lm_n[lm -> x] vectors
-            if (ell,mv) in gV.lm_index.values():
+            if (ell,mv) in gV.lm_index:
                 xlm_v = gV.lm_index.index((ell,mv))
             else:
                 continue
             for mq in range(-ell, ell+1):
                 # map (mv, mq) to the index ix_K for the matrix K(ell):
-                ix_K = [ell+mv, ell+mq]
+                ix_K = (ell+mv, ell+mq)
                 # get index for f_lm_n[lm -> x] vectors
-                if (ell,mq) in fsQ.lm_index.values():
+                if (ell,mq) in fsQ.lm_index:
                     xlm_q = fsQ.lm_index.index((ell,mq))
                 else:
                     continue
@@ -179,11 +179,11 @@ def tr_mcalK(gV, fsQ, mI, use_gvar=False):
         for m in range(-ell, ell+1):
             # map (mv, mq) to the index ix_K for the matrix K(ell):
             # get index for f_lm_n[lm -> x] vectors
-            if (ell,mv) in gV.lm_index.values():
+            if (ell,mv) in gV.lm_index:
                 xlm_v = gV.lm_index.index((ell,mv))
             else:
                 continue
-            if (ell,mq) in fsQ.lm_index.values():
+            if (ell,mq) in fsQ.lm_index:
                 xlm_q = fsQ.lm_index.index((ell,mq))
             else:
                 continue

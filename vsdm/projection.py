@@ -90,6 +90,12 @@ class Fnlm(Basis, Interpolator3d):
         self.f_nlm = {}
         self.t_eval = 0.
         self.f2_energy = 0.
+        # Optional properties of f(uvec):
+        self.z_even = False
+        self.phi_symmetric = False
+        self.phi_cyclic = 1
+        self.phi_even = False
+        self.center_Z2 = False
         # The following are to be updated by update_maxes():
         self.nMax = 0
         self.ellMax = 0
@@ -473,8 +479,15 @@ class Fnlm(Basis, Interpolator3d):
                 if row[0]=='#':
                     # skip commented lines and the header
                     continue
-                str_n, str_l, str_m, f_mean, f_std = row
-                nlm = (int(str_n),int(str_l),int(str_m))
+                if len(row)==5:
+                    str_n, str_l, str_m, f_mean, f_std = row
+                elif len(row)==4:
+                    str_n, str_l, str_m, f_mean = row
+                    f_std = 0.
+                try:
+                    nlm = (int(str_n),int(str_l),int(str_m))
+                except ValueError:
+                    nlm = (int(float(str_n)),int(float(str_l)),int(float(str_m)))
                 if use_gvar:
                     data_fnlm[nlm] = gvar.gvar(float(f_mean), float(f_std))
                 else:

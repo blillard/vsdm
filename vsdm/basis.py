@@ -164,7 +164,7 @@ class Basis1d():
             else:
                 return 0
 
-    def _u_baseOfSupport_n(self, n, getMidpoint=False):
+    def _u_baseOfSupport(self, n, getMidpoint=False):
         """Returns the range in u for which _r_n_x(u/u0) is nonzero
 
         For wavelets, also provides the mid-point if (getMidpoint)
