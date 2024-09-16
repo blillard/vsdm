@@ -2,7 +2,7 @@
 
 """
 
-__all__ = ["WignerG"]
+__all__ = ['WignerG', 'testD_lm']
 
 # import math
 import numpy as np
@@ -15,6 +15,63 @@ import spherical #For Wigner D matrix
 # import csv # file IO for projectFnlm
 # import os.path
 # import h5py # database format for mathcalI arrays
+
+from .utilities import *
+
+
+def _applyR_thetaphi(R, theta, phi):
+    x, y, z = sph_to_cart([1, theta, phi])
+    v = quaternionic.array(0, x, y, z)
+    vp = R * v / R
+    vpx, vpy, vpz = vp.imag
+    r, th, ph = vsdm.cart_to_sph([vpx, vpy, vpz])
+    return (th, ph)
+
+def testD_lm(l, m, printout=False):
+    R = quaternionic.array([2, 5, 3, 7]).normalized
+    theta = 0.4*np.pi
+    phi = 1.3*np.pi
+    th_p, ph_p = _applyR_thetaphi(1/R, theta, phi)
+    Ylm_R_direct = Ylm(l, m, th_p, ph_p)
+    # WignerD matrix
+    D = wigD.D(R)
+    Ylm_R = 0.
+    Ylm_R_T = 0.
+    Ylm_R_star = 0.
+    Ylm_R_dag = 0.
+    for mp in range(-l, l+1):
+        D_mp_m = D[wigD.Dindex(l, mp, m)]
+        Ylm_R += D_mp_m * Ylm(l, mp, theta, phi)
+        Ylm_R_star += np.conjugate(D_mp_m) * Ylm(l, mp, theta, phi)
+        D_m_mp = D[wigD.Dindex(l, m, mp)]
+        Ylm_R_T += D_m_mp * Ylm(l, mp, theta, phi)
+        Ylm_R_dag += np.conjugate(D_m_mp) * Ylm(l, mp, theta, phi)
+    lbls = ['D', 'D_T', 'D_star', 'D_dagger']
+    vals = [Ylm_R, Ylm_R_T, Ylm_R_star, Ylm_R_dag]
+    diffs = [Ylm_R_direct - y for y in vals]
+    eps = 1e-12
+    spherical_D_is = []
+    for j in range(len(vals)):
+        diff = diffs[j]
+        lbl = lbls[j]
+        if np.abs(diff) < eps:
+            spherical_D_is += [lbl]
+    if printout:
+        print('Ylm(R^(-1) * x): {}'.format(Ylm_R_direct))
+        print('D_(k,m)*Ylk(x): {}'.format(Ylm_R))
+        print('D_(m,k)*Ylk(x): {}'.format(Ylm_R_T))
+        print('D*_(k,m)*Ylk(x): {}'.format(Ylm_R_star))
+        print('D*_(m,k)*Ylk(x): {}'.format(Ylm_R_dag))
+        print('differences:')
+        for j in range(len(vals)):
+            diff = diffs[j]
+            lbl = lbls[j]
+            print('\t{}: {}'.format(lbl, diff))
+        print('version of Wigner D(R) provided by spherical.D(R):',
+              spherical_D_is)
+    return spherical_D_is
+
+    # return Ylm_R_direct, Ylm_R
 
 class WignerG():
     """Assembles the real form of the Wigner D matrix.
@@ -39,9 +96,12 @@ class WignerG():
 
     for an active rotation with z-y-z Euler angles (alpha, beta, gamma).
     This is intended to match the convention in the documentation of 'spherical'.
-    However, spherical v1.0.14 appears to use the opposite definition of R
-    (i.e. passive vs active). So, WignerG.G_l here calls wigD.D(1/R) using the
-    inverse rotation, to correct for this difference.
+    However, spherical v1.0.14 Wigner.D returns the complex conjugate of D,
+        rather than D(l,mp,m)(R) = <l,mp| R |l,m> for active rotation R.
+
+    The function testD_lm(l,m) tests whether it is D(l,mp,m) or its complex
+        conjugate that is returned by Wigner.D(R), and adjusts the calculation
+        of WignerG accordingly.
     """
     def __init__(self, ellMax, center_Z2=False):
         self.wigD = spherical.Wigner(ellMax)
@@ -54,6 +114,10 @@ class WignerG():
         self.Glist = {} # dict of G_ell matrices for each rotation
         self.rIndex = -1
         self.center_Z2 = center_Z2
+        if ellMax > 0:
+            self.conj_D = ('D_star' in testD_lm(ellMax, 1))
+        else:
+            self.conj_D = False
 
     def G_l(self, R, save=False):
         """Calculates G(ell) for all ell=0...ellMax.
@@ -71,7 +135,11 @@ class WignerG():
         gL['R'] = R
         # R is a quaternion: doesn't need to be a unit quaternion
         # mxD = self.wigD.D(R)
-        mxD = self.wigD.D(1/R) # match the definition of D(R) in spherical v1.0
+        if self.conj_D:
+            # to match the definition of D(R) in spherical v1.0:
+            mxD = np.conjugate(self.wigD.D(R))
+        else:
+            mxD = self.wigD.D(R)
         for ell in range(self.ellMax+1):
             gL[ell] = np.zeros([2*ell+1, 2*ell+1])
             if self.center_Z2 and ell%2!=0: continue
@@ -83,7 +151,8 @@ class WignerG():
                 ix0p = (ell, ell+m)
                 ix0m = (ell, ell-m)
                 d_0p = mxD[self.wigD.Dindex(ell, 0, m)]
-                d_0m = mxD[self.wigD.Dindex(ell, 0, -m)]
+                # d_0m = mxD[self.wigD.Dindex(ell, 0, -m)] #fix this
+                d_0m = d_0p
                 gL[ell][ix0m] = np.sqrt(2) * np.imag(d_0m)
                 gL[ell][ix0p] = np.sqrt(2) * np.real(d_0p)
             # mp>0, m=0:
