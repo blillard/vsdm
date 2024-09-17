@@ -76,6 +76,7 @@ import sys
 
 # sys.path.insert(0,'../') #load the local version of vsdm
 
+from earthspeed import vEt
 import vsdm
 from vsdm.units import *
 from vsdm.utilities import *
@@ -122,47 +123,6 @@ def gSHM(vDisp, vEsc, vE, vDMsph):
 
 
 
-def vEt_simple(t_yr):
-    # from Lewin & Smith, 1996, approximation Eq(3.6)
-    # time in years 'from (approximately) March 2nd'
-    # returns vE in km_s.
-    # L&S: (244 + 15*math.sin(2*math.pi*t_yr))*km_s
-    # with update from 2105.00599:
-    return (252. + 15*math.sin(2*math.pi*t_yr))*km_s
-
-def vEt_precise(date):
-    # from Lewin & Smith, 1996, Appx B
-    # with updated numeric values from 2105.00599
-    # date: a datetime object (year, month, day, hour=...)
-    # returns vE in km_s
-    uR = (0, 238*km_s, 0) #local group velocity. Most uncertain. 1996: (230)
-    uS = (11.1*km_s, 12.2*km_s, 7.3*km_s) # Sun wrt local group. 1996: (9, 12, 7)
-    els = 0.016722 # ellipticity of Earth orbit
-    # angular constants (all in degrees)
-    lam0 = 13. # longitude of orbit minor axis
-    bX = -5.5303
-    bY = 59.575
-    bZ = 29.812
-    lX = 266.141
-    lY = -13.3485
-    lZ = 179.3212
-    # time reference: noon UTC, 31 Dec 1999
-    datetime0 = dts.datetime.fromisoformat('1999-12-31T12:00:00')
-    difftime = date - datetime0
-    nDays = difftime.days + difftime.seconds/(24*3600)
-    L = (280.460 + 0.9856474*nDays) % 360 # (degrees)
-    g = (357.528 + 0.9856003*nDays) % 360# (degrees)
-    # ecliptic longitude:
-    lam = L + 1.915*math.sin(g * math.pi/180) + 0.020*math.sin(2*g * math.pi/180)
-    uEl = 29.79*km_s * (1 - els*math.sin((lam - lam0)*math.pi/180))
-    uEx = uEl * math.cos(bX * math.pi/180) * math.sin((lam - lX)*math.pi/180)
-    uEy = uEl * math.cos(bY * math.pi/180) * math.sin((lam - lY)*math.pi/180)
-    uEz = uEl * math.cos(bZ * math.pi/180) * math.sin((lam - lZ)*math.pi/180)
-    vEabs = math.sqrt((uR[0]+uS[0]+uEx)**2
-                      + (uR[1]+uS[1]+uEy)**2
-                      + (uR[2]+uS[2]+uEz)**2)
-    return vEabs
-
 def tilde_E(vDisp_0, beta):
     # for getting the energy of the distribution
     sqrtpi = math.sqrt(math.pi)
@@ -178,7 +138,7 @@ def main(n_days, l_max, power2):
     #reference maximum: 2024 May 30, 5:28:00 UTC
     date_ref = dts.datetime(2024, 5, 30, 5, 28, 0)
     date = date_ref + dts.timedelta(days=n_days)
-    vE = vEt_precise(date)
+    vE = np.linalg.norm(vEt(date))
 
     @numba.jit("double(double[:])", nopython=True)
     def gModel(vSph):
@@ -202,16 +162,16 @@ def main(n_days, l_max, power2):
                         atol_f=0.01*atol_f,
                         rtol_f=epsilon)
     t0 = time.time()
-    wave_extp = vsdm.ExtrapolateF(bdict, gModel, integ_params,
-                                     power2_lm={}, p_order=3,
-                                     epsilon=epsilon,
-                                     atol_energy=atol_E,
-                                     atol_fnlm=atol_f,
-                                     max_depth=5,
-                                     refine_at_init=False,
-                                     f_type='gX',
-                                     csvsave_name=None,
-                                     use_gvar=True)
+    wave_extp = vsdm.WaveletFnlm(bdict, gModel, integ_params,
+                                 power2_lm={}, p_order=3,
+                                 epsilon=epsilon,
+                                 atol_energy=atol_E,
+                                 atol_fnlm=atol_f,
+                                 max_depth=5,
+                                 refine_at_init=False,
+                                 f_type='gX',
+                                 csvsave_name=None,
+                                 use_gvar=True)
 
     lm_list = [(l, 0) for l in range(l_max+1)]
     t0_lm = {}
@@ -255,24 +215,26 @@ def alt_vE(vE_km_s, l_max, power2):
 
     bdict = dict(u0=VMAX, type='wavelet', uMax=VMAX)
     bdict['vE'] = vE #save this info
-    mname = "SHM_v{:.4g}".format(vE) #string model name for saving HDF5
+    mname = "SHM_v{:.4g}".format(vE_km_s) #string model name for saving HDF5
     epsilon = 1e-5
     atol_E = energy * epsilon
     atol_f = 0.05 * math.sqrt(atol_E)
     integ_params = dict(method='gquad', verbose=True,
-                        atol_f=0.01*atol_f,
+                        atol_f=0.002*atol_f,
                         rtol_f=epsilon)
+    # save_csv = None
+    save_csv = 'out/' + mname + '.csv'
     t0 = time.time()
-    wave_extp = vsdm.ExtrapolateF(bdict, gModel, integ_params,
-                                  power2_lm={}, p_order=3,
-                                  epsilon=epsilon,
-                                  atol_energy=atol_E,
-                                  atol_fnlm=atol_f,
-                                  max_depth=5,
-                                  refine_at_init=False,
-                                  f_type='gX',
-                                  csvsave_name=None,
-                                  use_gvar=True)
+    wave_extp = vsdm.WaveletFnlm(bdict, gModel, integ_params,
+                                 power2_lm={}, p_order=3,
+                                 epsilon=epsilon,
+                                 atol_energy=atol_E,
+                                 atol_fnlm=atol_f,
+                                 max_depth=5,
+                                 refine_at_init=False,
+                                 f_type='gX',
+                                 csvsave_name=save_csv,
+                                 use_gvar=True)
 
     lm_list = [(l, 0) for l in range(l_max+1)]
     t0_lm = {}
