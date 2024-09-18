@@ -2,7 +2,7 @@
 
 """
 
-__all__ = ['WignerG', 'testD_lm']
+__all__ = ['WignerG', 'testD_lm', 'testG_lm']
 
 # import math
 import numpy as np
@@ -72,6 +72,28 @@ def testD_lm(l, m, printout=False):
               spherical_D_is)
     return spherical_D_is
 
+
+def testG_lm(l, m, printout=True):
+    wigG = WignerG(l)
+    R = quaternionic.array([2, 5, 3, 7]).normalized
+    theta = 0.4*np.pi
+    phi = 1.3*np.pi
+    th_p, ph_p = _applyR_thetaphi(1/R, theta, phi)
+    Ylm_R_direct = ylm_real(l, m, th_p, ph_p)
+    # WignerD matrix
+    gL = wigG.G_l(R)
+    mxGl = gL[l]
+    Ylm_R = 0.
+    for mp in range(-l, l+1):
+        G_mp_m = mxGl[l+mp, l+m]
+        Ylm_R += G_mp_m * ylm_real(l, mp, theta, phi)
+    diff = Ylm_R_direct - Ylm_R
+    eps = 1e-12
+    if printout:
+        print('Ylm(R^(-1) * x): {}'.format(Ylm_R_direct))
+        print('G_(k,m)*Ylk(x): {}'.format(Ylm_R))
+        print('difference: {}'.format(diff))
+    return diff
 
 class WignerG():
     """Assembles the real form of the Wigner D matrix.
@@ -184,3 +206,9 @@ class WignerG():
             self.rotations[self.rIndex] = R
             self.Glist[self.rIndex] = gL
         return gL
+
+    def G(self, l, m, mp, R):
+        if l%2==1 and self.center_Z2==True:
+            return 0.
+        gL = self.G_l(R, save=False)
+        return gL[l][l-m, l-mp]
