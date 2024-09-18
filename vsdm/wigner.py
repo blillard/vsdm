@@ -24,15 +24,16 @@ def _applyR_thetaphi(R, theta, phi):
     v = quaternionic.array(0, x, y, z)
     vp = R * v / R
     vpx, vpy, vpz = vp.imag
-    r, th, ph = vsdm.cart_to_sph([vpx, vpy, vpz])
+    r, th, ph = cart_to_sph([vpx, vpy, vpz])
     return (th, ph)
 
 def testD_lm(l, m, printout=False):
+    wigD = spherical.Wigner(l)
     R = quaternionic.array([2, 5, 3, 7]).normalized
     theta = 0.4*np.pi
     phi = 1.3*np.pi
     th_p, ph_p = _applyR_thetaphi(1/R, theta, phi)
-    Ylm_R_direct = Ylm(l, m, th_p, ph_p)
+    Ylm_R_direct = ylm_cx(l, m, th_p, ph_p)
     # WignerD matrix
     D = wigD.D(R)
     Ylm_R = 0.
@@ -41,11 +42,11 @@ def testD_lm(l, m, printout=False):
     Ylm_R_dag = 0.
     for mp in range(-l, l+1):
         D_mp_m = D[wigD.Dindex(l, mp, m)]
-        Ylm_R += D_mp_m * Ylm(l, mp, theta, phi)
-        Ylm_R_star += np.conjugate(D_mp_m) * Ylm(l, mp, theta, phi)
+        Ylm_R += D_mp_m * ylm_cx(l, mp, theta, phi)
+        Ylm_R_star += np.conjugate(D_mp_m) * ylm_cx(l, mp, theta, phi)
         D_m_mp = D[wigD.Dindex(l, m, mp)]
-        Ylm_R_T += D_m_mp * Ylm(l, mp, theta, phi)
-        Ylm_R_dag += np.conjugate(D_m_mp) * Ylm(l, mp, theta, phi)
+        Ylm_R_T += D_m_mp * ylm_cx(l, mp, theta, phi)
+        Ylm_R_dag += np.conjugate(D_m_mp) * ylm_cx(l, mp, theta, phi)
     lbls = ['D', 'D_T', 'D_star', 'D_dagger']
     vals = [Ylm_R, Ylm_R_T, Ylm_R_star, Ylm_R_dag]
     diffs = [Ylm_R_direct - y for y in vals]
@@ -71,7 +72,6 @@ def testD_lm(l, m, printout=False):
               spherical_D_is)
     return spherical_D_is
 
-    # return Ylm_R_direct, Ylm_R
 
 class WignerG():
     """Assembles the real form of the Wigner D matrix.
@@ -145,39 +145,40 @@ class WignerG():
             if self.center_Z2 and ell%2!=0: continue
             # mp=m=0:
             ix00 = (ell, ell)
-            gL[ell][ix00] = np.real(mxD[self.wigD.Dindex(ell, 0, 0)])
+            d_00 = mxD[self.wigD.Dindex(ell, 0, 0)]
             # mp=0, m>0
-            for m in range(1, ell+1):
-                ix0p = (ell, ell+m)
-                ix0m = (ell, ell-m)
-                d_0p = mxD[self.wigD.Dindex(ell, 0, m)]
-                # d_0m = mxD[self.wigD.Dindex(ell, 0, -m)] #fix this
-                d_0m = d_0p
-                gL[ell][ix0m] = np.sqrt(2) * np.imag(d_0m)
-                gL[ell][ix0p] = np.sqrt(2) * np.real(d_0p)
-            # mp>0, m=0:
-            for mp in range(1,ell+1):
-                ixm0 = (ell-mp, ell)
-                ixp0 = (ell+mp, ell)
-                d_m0 = mxD[self.wigD.Dindex(ell, -mp, 0)]
-                d_p0 = mxD[self.wigD.Dindex(ell, mp, 0)]
-                gL[ell][ixm0] = -np.sqrt(2) * np.imag(d_m0)
-                gL[ell][ixp0] = np.sqrt(2) * np.real(d_p0)
-            # mp>0, m>0:
-            for mp in range(1, ell+1):
-                for m in range(1, ell+1):
-                    ixpp = (ell+mp, ell+m)
-                    ixpm = (ell+mp, ell-m)
-                    ixmp = (ell-mp, ell+m)
-                    ixmm = (ell-mp, ell-m)
-                    d_pp = mxD[self.wigD.Dindex(ell, mp, m)]
-                    d_mp = mxD[self.wigD.Dindex(ell, -mp, m)]
-                    d_pm = mxD[self.wigD.Dindex(ell, mp, -m)]
-                    d_mm = mxD[self.wigD.Dindex(ell, -mp, -m)]
-                    gL[ell][ixmm] = np.real(d_mm) - (-1)**mp * np.real(d_pm)
-                    gL[ell][ixmp] = -np.imag(d_mp) + (-1)**mp * np.imag(d_pp)
-                    gL[ell][ixpm] = np.imag(d_pm) + (-1)**mp * np.imag(d_mm)
-                    gL[ell][ixpp] = np.real(d_pp) + (-1)**mp * np.real(d_mp)
+            if ell==0:
+                continue
+            # row index j, column index k
+            d_0p_k = np.array([[(-1)**k*mxD[self.wigD.Dindex(ell, 0, k)]
+                                for k in range(1, ell+1)]])
+            d_p0_j = np.array([[(-1)**j*mxD[self.wigD.Dindex(ell, j, 0)]]
+                               for j in range(1, ell+1)])
+            d_mp_jk = np.array([[(-1)**k*mxD[self.wigD.Dindex(ell, -j, k)]
+                                for k in range(1, ell+1)] for j in range(1, ell+1)])
+            d_pp_jk = np.array([[(-1)**(j+k)*mxD[self.wigD.Dindex(ell, j, k)]
+                                for k in range(1, ell+1)] for j in range(1, ell+1)])
+            G_mm_jk = np.real(d_pp_jk) - np.real(d_mp_jk)
+            G_mp_jk = -np.imag(d_pp_jk) + np.imag(d_mp_jk)
+            G_pm_jk = np.imag(d_pp_jk) + np.imag(d_mp_jk)
+            G_pp_jk = np.real(d_pp_jk) + np.real(d_mp_jk)
+            G_m0_j = - np.sqrt(2) * np.imag(d_p0_j)
+            G_p0_j = np.sqrt(2) * np.real(d_p0_j)
+            G_0m_k = np.sqrt(2) * np.imag(d_0p_k)
+            G_0p_k = np.sqrt(2) * np.real(d_0p_k)
+            G_00 = np.real(d_00)
+            G_mm = np.flip(np.flip(G_mm_jk, axis=1), axis=0)
+            G_mp = np.flip(G_mp_jk, axis=0)
+            G_pm = np.flip(G_pm_jk, axis=1)
+            G_m0 = np.flip(G_m0_j, axis=0)
+            G_0m = np.flip(G_0m_k, axis=1)
+            # concatenate first along the k axis:
+            _G_m = np.concatenate((G_mm, G_m0, G_mp), axis=1)
+            _G_0 = np.concatenate((G_0m, [[G_00]], G_0p_k), axis=1)
+            _G_p = np.concatenate((G_pm, G_p0_j, G_pp_jk), axis=1)
+            # concatenate results along the j axis:
+            mxG = np.concatenate((_G_m, _G_0, _G_p), axis=0)
+            gL[ell] = mxG
         if save:
             self.rIndex += 1 # new index for new entry
             self.rotations[self.rIndex] = R
