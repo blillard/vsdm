@@ -2,7 +2,7 @@
 
 """
 
-__all__ = ['WignerG', 'Gindex', 'mxG_l', 'testD_lm', 'testG_lm']
+__all__ = ['WignerG', 'Gindex', 'testD_lm', 'testG_lm']
 
 # import math
 import numpy as np
@@ -26,11 +26,6 @@ def Gindex(l, m, k, lmod=1):
         return int(l*(4*l**2 - 6*l - 1)/6) + (2*l+1)*(l+m) + (l+k)
     # else:
     return int(l*(4*l**2-1)/3) + (2*l+1)*(l+m) + (l+k)
-
-def mxG_l(gvec, l, lmod=1):
-    ix_start = Gindex(l, -l, -l, lmod=lmod)
-    ix_end = Gindex(l, l, l, lmod=lmod)
-    return gvec[ix_start:ix_end+1].reshape((2*l+1, 2*l+1))
 
 def _applyR_thetaphi(R, theta, phi):
     x, y, z = sph_to_cart([1, theta, phi])
@@ -121,27 +116,36 @@ class WignerG():
 
     Arguments:
         ellMax: largest ell for which G(R) is needed
-        center_Z2: if True, then only need even values of ell
+        lmod: if ==2, then only use even values of ell
 
     Returns:
-        self.Glist, self.rotations: dictionaries for saving G_ell matrices
-            indexed 0,1,... by order in which G_ell(R) is evaluated
+        self.G_array: saved values of G_ell(R) matrices. All G(l,m,mp) values
+            are concatenated into a single 1d array, 'gvec', indexed by
+            Gindex(l,m,mp). Each row of G_array corresponds to a rotation R,
+            ordered according to the calls to self.G(R, save=True).
+         self.rotations: saved values of quaternions R, for each row in G_array.
 
     Method:
-        G_ell(R, save=True): calculates G for specified rotation
-            if save: add rotation to self.rotations, G_ell to self.Glist
-            returns dictionary gL, gL[ell] = G(ell), gL['R'] = R
+        G(R, save=True): calculates G for specified rotation (quaternion) R
+            if save: add rotation to self.rotations, G_vec to self.G_array.
+            returns a 1d array 'gvec' of G(l,m,mp), indexed by Gindex(l,m,mp).
+        Gindex(l, m, mp): returns the index in gvec that matches these values
+            of (l, m, mp).
+        G_lmk(l,m,mp,R): calculates gvec(R), and returns its (l,m,mp) component.
+            Multiple calls to G_lmk are inefficient: it is generally faster to
+            find G(l,m,mp) from gvec[Gindex(l, m, mp)].
+        G_l(R): returns a dictionary of 2d arrays, one for each ell (gL[ell]).
+            No longer used in ratecalc.
 
-    NOTE: Convention for Wigner D matrix:
+    Convention for Wigner D matrix:
     In terms of the Wigner "little d" matrix, d^(ell), my D^(ell) matrix is:
 
         D^(ell)_{m',m} = exp(-i m' alpha) * d^(ell)_{m'm}(beta) * exp(-i m gamma)
 
     for an active rotation with z-y-z Euler angles (alpha, beta, gamma).
     This is intended to match the convention in the documentation of 'spherical'.
-    However, spherical v1.0.14 Wigner.D returns the complex conjugate of D,
-        rather than D(l,mp,m)(R) = <l,mp| R |l,m> for active rotation R.
 
+    Note: spherical v1.0.14 Wigner.D returns the complex conjugate of this D(R).
     The function testD_lm(l,m) tests whether it is D(l,mp,m) or its complex
         conjugate that is returned by Wigner.D(R), and adjusts the calculation
         of WignerG accordingly.
@@ -156,17 +160,15 @@ class WignerG():
         #     this "matrix" is saved as 1d array of coefficients...
         # get coefficient for index (ell, mprime, m):
         #     D^ell_{mp,m} = mxD[wigD.Dindex(ell, mp, m)]
-        self.rotations = [] # list of rotations
+        self.rotations = [] # list of rotations to evaluate at init
         self.G_array = [] # array of G_ell 1d arrays for each rotation
-        # if lmod==2:
-        #     self.lenG = int((ellMax+2)*(4*ellMax**2+10*ellMax+3)/6)
-        # else:
-        #     self.lenG = int((ellMax+1)*(4*(ellMax+1)**2-1)/3)
         if ellMax > 0:
             # correct for different definition of D from spherical
             self.conj_D = ('D_star' in testD_lm(ellMax, 1))
-        else:
+        elif ('D' in testD_lm(ellMax, 1)):
             self.conj_D = False
+        else:
+            print('Error: spherical.Wigner.D returns neither D nor its complex conjugate.')
 
         if len(rotations) > 0:
             # initialize self.Glist
@@ -243,7 +245,7 @@ class WignerG():
         Output:
         * gL, a dictionary of G(ell) matrices, G(l,m,k) = gL[l][l+m, l+k]
 
-        ! This method is replaced by 1d array self.G(R) in v.0.3.3.
+        ! This method has been superceded by 1d array self.G(R) in v.0.3.3.
         """
         gL = {}
         gL['R'] = R
@@ -296,7 +298,12 @@ class WignerG():
         return gL
 
     def G_lmk(self, l, m, k, R):
-        """Returns a single element of G(l,m,k)."""
+        """Returns a single element of G(l,m,k).
+
+        Note: this method calculates gvec = self.G(R) from scratch. For multiple
+            values of (l, m, k), it is faster to evaluate gvec once, and to
+            find G_lmk from gvec[self.Gindex(l, m, k)].
+        """
         if l%self.lmod!=0:
             return 0.
         gv = self.G(R, save=False)
