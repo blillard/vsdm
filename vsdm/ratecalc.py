@@ -66,7 +66,7 @@ def _vecK(gV, fsQ, mI, ellMax=None, lmod=1, use_gvar=False, sparse=False):
         for v_nlm,gV_nlm in gV.f_nlm.items():
             if gV_nlm==0: continue
             (nv, ell, mv) = v_nlm
-            if ell%theta_Zn!=0: continue
+            if ell%lmod!=0: continue
             for q_nlm,fsQ_nlm in fsQ.f_nlm.items():
                 (nq, ellq, mq) = q_nlm
                 if ellq != ell: continue
@@ -74,7 +74,7 @@ def _vecK(gV, fsQ, mI, ellMax=None, lmod=1, use_gvar=False, sparse=False):
                 ix_K = Gindex(ell, mv, mq, lmod=lmod)
                 Ilvq = mI.getI_lvq_analytic((ell, nv, nq))
                 vecK[ix_K] += gV_nlm * Ilvq * fsQ_nlm
-        return mathKell
+        return vecK
     ### ELSE: (not sparse)
     # this _makeFarray does use_gvar only if gV.use_gvar:
     fLMn_gV = gV._makeFarray(use_gvar=use_gvar)
