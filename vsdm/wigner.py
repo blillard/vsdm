@@ -2,7 +2,7 @@
 
 """
 
-__all__ = ['WignerG', 'testD_lm', 'testG_lm']
+__all__ = ['WignerG', 'Gindex', 'mxG_l', 'testD_lm', 'testG_lm']
 
 # import math
 import numpy as np
@@ -18,6 +18,19 @@ import spherical #For Wigner D matrix
 
 from .utilities import *
 
+def Gindex(l, m, k, lmod=1):
+    if lmod==2:
+        if l%2!=0:
+            return None
+        # only including even l
+        return int(l*(4*l**2 - 6*l - 1)/6) + (2*l+1)*(l+m) + (l+k)
+    # else:
+    return int(l*(4*l**2-1)/3) + (2*l+1)*(l+m) + (l+k)
+
+def mxG_l(gvec, l, lmod=1):
+    ix_start = Gindex(l, -l, -l, lmod=lmod)
+    ix_end = Gindex(l, l, l, lmod=lmod)
+    return gvec[ix_start:ix_end+1].reshape((2*l+1, 2*l+1))
 
 def _applyR_thetaphi(R, theta, phi):
     x, y, z = sph_to_cart([1, theta, phi])
@@ -80,20 +93,28 @@ def testG_lm(l, m, printout=True):
     phi = 1.3*np.pi
     th_p, ph_p = _applyR_thetaphi(1/R, theta, phi)
     Ylm_R_direct = ylm_real(l, m, th_p, ph_p)
-    # WignerD matrix
+    # WignerG, matrix form
     gL = wigG.G_l(R)
     mxGl = gL[l]
-    Ylm_R = 0.
+    Ylm_M = 0.
     for mp in range(-l, l+1):
         G_mp_m = mxGl[l+mp, l+m]
-        Ylm_R += G_mp_m * ylm_real(l, mp, theta, phi)
-    diff = Ylm_R_direct - Ylm_R
-    eps = 1e-12
+        Ylm_M += G_mp_m * ylm_real(l, mp, theta, phi)
+    diffM = Ylm_R_direct - Ylm_M
+    # WignerG, vector form
+    gv = wigG.G(R)
+    Ylm_V = 0.
+    for mp in range(-l, l+1):
+        G_mp_m = gv[wigG.Gindex(l, mp, m)]
+        Ylm_V += G_mp_m * ylm_real(l, mp, theta, phi)
+    diffV = Ylm_R_direct - Ylm_V
     if printout:
         print('Ylm(R^(-1) * x): {}'.format(Ylm_R_direct))
-        print('G_(k,m)*Ylk(x): {}'.format(Ylm_R))
-        print('difference: {}'.format(diff))
-    return diff
+        print('(M) G_(k,m)*Ylk(x): {}'.format(Ylm_M))
+        print('(M) difference: {}'.format(diffM))
+        print('(V) G_(k,m)*Ylk(x): {}'.format(Ylm_V))
+        print('(V) difference: {}'.format(diffV))
+    return diffM, diffV
 
 class WignerG():
     """Assembles the real form of the Wigner D matrix.
@@ -125,33 +146,104 @@ class WignerG():
         conjugate that is returned by Wigner.D(R), and adjusts the calculation
         of WignerG accordingly.
     """
-    def __init__(self, ellMax, center_Z2=False):
+    def __init__(self, ellMax, rotations=[], lmod=1):
         self.wigD = spherical.Wigner(ellMax)
+        self.lmod = lmod
+        if lmod==2 and ellMax%2==1:
+                ellMax += -1
         self.ellMax = ellMax
         # evaluate once per rotation: mxD = wigD.D(rotation)
         #     this "matrix" is saved as 1d array of coefficients...
         # get coefficient for index (ell, mprime, m):
         #     D^ell_{mp,m} = mxD[wigD.Dindex(ell, mp, m)]
-        self.rotations = {} # save list of rotations
-        self.Glist = {} # dict of G_ell matrices for each rotation
-        self.rIndex = -1
-        self.center_Z2 = center_Z2
+        self.rotations = [] # list of rotations
+        self.G_array = [] # array of G_ell 1d arrays for each rotation
+        # if lmod==2:
+        #     self.lenG = int((ellMax+2)*(4*ellMax**2+10*ellMax+3)/6)
+        # else:
+        #     self.lenG = int((ellMax+1)*(4*(ellMax+1)**2-1)/3)
         if ellMax > 0:
+            # correct for different definition of D from spherical
             self.conj_D = ('D_star' in testD_lm(ellMax, 1))
         else:
             self.conj_D = False
 
-    def G_l(self, R, save=False):
-        """Calculates G(ell) for all ell=0...ellMax.
+        if len(rotations) > 0:
+            # initialize self.Glist
+            for R in rotations:
+                self.G(R, save=True)
+
+    def G(self, R, save=False):
+        """Calculates G(l, m, mp) as 1d array.
 
         Arguments:
         * R: an SO(3) element, in quaternion representation
         * save: if True, adds R to self.rotations, and G_l(R) to self.Glist
 
         Output:
-        * gL, a dict of G(ell) matrices, gL[ell] = G(ell).
-            Includes gL['R'] entry, the value of the quaternion R
+        * gvec, a 1d array. G(l, m, mp) = gvec[Gindex(l, m, mp, lmod=lmod)]
+        """
+        if self.conj_D:
+            # to match the definition of D(R) in spherical v1.0:
+            mxD = np.conjugate(self.wigD.D(R))
+        else:
+            mxD = self.wigD.D(R)
+        # begin with l=0:
+        d_00 = mxD[self.wigD.Dindex(0, 0, 0)]
+        gvec = [np.real(d_00)]
+        # continue with l=lmod (1 or 2):
+        for ell in range(self.lmod, self.ellMax+1, self.lmod):
+            # mp=m=0:
+            d_00 = mxD[self.wigD.Dindex(ell, 0, 0)]
+            # mp=0, m>0
+            # row index j, column index k
+            d_0p_k = np.array([[(-1)**k*mxD[self.wigD.Dindex(ell, 0, k)]
+                                for k in range(1, ell+1)]])
+            d_p0_j = np.array([[(-1)**j*mxD[self.wigD.Dindex(ell, j, 0)]]
+                               for j in range(1, ell+1)])
+            d_mp_jk = np.array([[(-1)**k*mxD[self.wigD.Dindex(ell, -j, k)]
+                                for k in range(1, ell+1)] for j in range(1, ell+1)])
+            d_pp_jk = np.array([[(-1)**(j+k)*mxD[self.wigD.Dindex(ell, j, k)]
+                                for k in range(1, ell+1)] for j in range(1, ell+1)])
+            G_mm_jk = np.real(d_pp_jk) - np.real(d_mp_jk)
+            G_mp_jk = -np.imag(d_pp_jk) + np.imag(d_mp_jk)
+            G_pm_jk = np.imag(d_pp_jk) + np.imag(d_mp_jk)
+            G_pp_jk = np.real(d_pp_jk) + np.real(d_mp_jk)
+            G_m0_j = - np.sqrt(2) * np.imag(d_p0_j)
+            G_p0_j = np.sqrt(2) * np.real(d_p0_j)
+            G_0m_k = np.sqrt(2) * np.imag(d_0p_k)
+            G_0p_k = np.sqrt(2) * np.real(d_0p_k)
+            G_00 = np.real(d_00)
+            G_mm = np.flip(np.flip(G_mm_jk, axis=1), axis=0)
+            G_mp = np.flip(G_mp_jk, axis=0)
+            G_pm = np.flip(G_pm_jk, axis=1)
+            G_m0 = np.flip(G_m0_j, axis=0)
+            G_0m = np.flip(G_0m_k, axis=1)
+            # concatenate first along the k axis:
+            _G_m = np.concatenate((G_mm, G_m0, G_mp), axis=1)
+            _G_0 = np.concatenate((G_0m, [[G_00]], G_0p_k), axis=1)
+            _G_p = np.concatenate((G_pm, G_p0_j, G_pp_jk), axis=1)
+            # concatenate results along the j axis:
+            mxG = np.concatenate((_G_m, _G_0, _G_p), axis=0)
+            gvec_l = [glmk for glmk in mxG.reshape((2*ell+1)**2)]
+            gvec += gvec_l
+        if save:
+            self.rotations += [R]
+            self.G_array += [gvec]
+        return np.array(gvec)
 
+
+    def G_l(self, R):
+        """Calculates G(ell) matrices for all ell=0...ellMax.
+
+        Arguments:
+        * R: an SO(3) element, in quaternion representation
+        * save: if True, adds R to self.rotations, and G_l(R) to self.Glist
+
+        Output:
+        * gL, a dictionary of G(ell) matrices, G(l,m,k) = gL[l][l+m, l+k]
+
+        ! This method is replaced by 1d array self.G(R) in v.0.3.3.
         """
         gL = {}
         gL['R'] = R
@@ -164,12 +256,12 @@ class WignerG():
             mxD = self.wigD.D(R)
         for ell in range(self.ellMax+1):
             gL[ell] = np.zeros([2*ell+1, 2*ell+1])
-            if self.center_Z2 and ell%2!=0: continue
+            if ell%self.lmod!=0: continue
             # mp=m=0:
-            ix00 = (ell, ell)
             d_00 = mxD[self.wigD.Dindex(ell, 0, 0)]
             # mp=0, m>0
             if ell==0:
+                gL[ell] = np.array([[np.real(d_00)]])
                 continue
             # row index j, column index k
             d_0p_k = np.array([[(-1)**k*mxD[self.wigD.Dindex(ell, 0, k)]
@@ -201,14 +293,22 @@ class WignerG():
             # concatenate results along the j axis:
             mxG = np.concatenate((_G_m, _G_0, _G_p), axis=0)
             gL[ell] = mxG
-        if save:
-            self.rIndex += 1 # new index for new entry
-            self.rotations[self.rIndex] = R
-            self.Glist[self.rIndex] = gL
         return gL
 
-    def G(self, l, m, mp, R):
-        if l%2==1 and self.center_Z2==True:
+    def G_lmk(self, l, m, k, R):
+        """Returns a single element of G(l,m,k)."""
+        if l%self.lmod!=0:
             return 0.
-        gL = self.G_l(R, save=False)
-        return gL[l][l-m, l-mp]
+        gv = self.G(R, save=False)
+        return gv[self.Gindex(l, m, k, lmod=self.lmod)]
+
+    def Gindex(self, l, m, k):
+        return Gindex(l, m, k, lmod=self.lmod)
+
+
+
+
+
+
+
+#
