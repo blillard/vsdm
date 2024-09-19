@@ -192,93 +192,9 @@ class McalI():
         integrator = vegas.Integrator(QVrange)
         integrator(integrand, nitn=nitn_init, neval=neval_init) #training
         I_lnvq = integrator(integrand, nitn=nitn, neval=neval) #result
-        # self.mcalI[ell, nv, nq] = mcalI
         if verbose:
             print(I_lnvq.summary())
         return I_lnvq
-
-    #
-    # def getI_lvq_analytic(self, lnvq, verbose=False):
-    #     """Analytic calculation for I(ell) matrix coefficients.
-    #
-    #     Only available for 'tophat' and 'wavelet' bases (so far).
-    #
-    #     Arguments:
-    #         lnvq = (ell, nv, nq)
-    #         verbose: whether to print output
-    #     """
-    #     (ell, nv, nq) = lnvq
-    #     V = self.V
-    #     Q = self.Q
-    #     v0 = self.v0
-    #     q0 = self.q0
-    #     mX = self.modelDMSM['mX'] # DM mass
-    #     fdm_n = self.modelDMSM['fdm_n'] # DM-SM scattering form factor index
-    #     mSM = self.modelDMSM['mSM'] # SM particle mass (mElec)
-    #     DeltaE = self.modelDMSM['DeltaE'] # DM -> SM energy transfer
-    #     muSM = self.modelDMSM['muSM'] # reduced mass
-    #     # Integrand is written in terms of dimensionless vStar and qStar:
-    #     qStar = self.modelDMSM['qStar']
-    #     vStar = self.modelDMSM['vStar']
-    #     v_type = V.basis['type']
-    #     q_type = Q.basis['type']
-    #     if verbose:
-    #         print("Calculating <V|I|Q> for (l,nv,nq): ", (ell,nv,nq))
-    #     # scale_factor = DeltaE**2 / (q0**2 * v0**2)
-    #     try:
-    #         assert v_type=='tophat' or v_type=='wavelet', "Analytic method only available for 'tophat' and 'wavelet'"
-    #         assert q_type=='tophat' or q_type=='wavelet', "Analytic method only available for 'tophat' and 'wavelet'"
-    #     except AssertionError:
-    #         # returns the error type, so one can try again with getI_lvq()
-    #         return AssertionError
-    #     commonFactor = ((q0/v0)**3/(2*mX*muSM**2) * (2*DeltaE/(q0*v0))**2
-    #                     *(q0_fdm/qStar)**(2*fdm_n))
-    #     n_regions = [1,1]
-    #     if v_type=='tophat':
-    #         [vx1, vx2] = V._x_baseOfSupport(nv, getMidpoint=False)
-    #         A_v = tophat_value(vx1, vx2) #normalized to 0<x<1
-    #         n_regions[0] = 1
-    #     elif v_type=='wavelet':
-    #         [vx1, vx2, vx3] = V._x_baseOfSupport(nv, getMidpoint=True)
-    #         if nv==0:
-    #             A_v = haar_sph_value(nv)
-    #             n_regions[0] = 1
-    #         else:
-    #             [A_v, B_v] = haar_sph_value(nv) #already normalized
-    #             n_regions[0] = 2
-    #     if q_type=='tophat':
-    #         [qx1, qx2] = Q._x_baseOfSupport(nq, getMidpoint=False)
-    #         A_q = tophat_value(qx1, qx2) #normalized to 0<x<1
-    #         n_regions[1] = 1
-    #     elif q_type=='wavelet':
-    #         [qx1, qx2, qx3] = Q._x_baseOfSupport(nq, getMidpoint=True)
-    #         if nq==0:
-    #             A_q = haar_sph_value(nq)
-    #             n_regions[1] = 1
-    #         else:
-    #             [A_q, B_q] = haar_sph_value(nq) #already normalized
-    #             n_regions[1] = 2
-    #     #Normalization: switch to dimensionless 'vx = v/v0', 'qx = q/q0'
-    #
-    #     # There is always an A_v A_q term:
-    #     vx12_star = [v0*vx1/vStar, v0*vx2/vStar]
-    #     qx12_star = [q0*qx1/qStar, q0*qx2/qStar]
-    #     term_AA = A_v*A_q * mI_star(ell, fdm_n, vx12_star, qx12_star)
-    #     # There are only B-type contributions if V or Q uses wavelets
-    #     term_AB, term_BA, term_BB = 0, 0, 0
-    #     if n_regions[0]==2:
-    #         vx23_star = [v0*vx2/vStar, v0*vx3/vStar]
-    #         term_BA = B_v*A_q * mI_star(ell, fdm_n, vx23_star, qx12_star)
-    #     if n_regions[1]==2:
-    #         qx23_star = [q0*qx2/qStar, q0*qx3/qStar]
-    #         term_AB = A_v*B_q * mI_star(ell, fdm_n, vx12_star, qx23_star)
-    #     if n_regions==[2,2]:
-    #         term_BB = B_v*B_q * mI_star(ell, fdm_n, vx23_star, qx23_star)
-    #     Ilvq = commonFactor * (term_AA + term_BA + term_AB + term_BB)
-    #     # self.mcalI[ell, nv, nq] = Ilvq
-    #     if verbose:
-    #         print("\t Ilvq = ", Ilvq)
-    #     return Ilvq
 
 
     def getI_lvq_analytic(self, lnvq, verbose=False):
@@ -358,7 +274,6 @@ class McalI():
         if n_regions==[2,2]:
             term_BB = B_v*B_q * mI_star(ell, fdm_n, v23_star, q23_star)
         Ilvq = commonFactor * (term_AA + term_BA + term_AB + term_BB)
-        # self.mcalI[ell, nv, nq] = Ilvq
         if verbose:
             print("\t Ilvq = ", Ilvq)
         return Ilvq
