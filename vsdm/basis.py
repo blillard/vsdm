@@ -89,19 +89,14 @@ class Basis1d():
         * uiList: mandatory for 'tophat', the list of u_i to be used
         * uMax: mandatory for 'laguerre', setting the limit of integration on u.
             For 'wavelet' and 'tophat', can set uMax=None.
-        * dim = 3,4: if ==4, adds generation of (etype,e0,eiList,eMax)
-            Not strictly mandatory. Defaults to dim=3 if missing.
+        * dim = 1,3: specifies the dimensionality of the radial functions,
+            for Haar and tophat basis functions. dim=3 is the default (e.g. for
+            spherical Haar wavelets), dim=1 for standard Haar wavelets.
     Methods and variables:
         .basis: dict with (type, u0, uMax, uiList, etc.)
-        _r_n_x(n, ell,x): radial function r^{ell}_n(u), with dimensionless x
-            Passes dimensionless u/u0 to appropriate basis function
-        r_n(n, ell,u): radial function r^{ell}_n(u), with dimensionful u
-            _r_n_x(n, ell,u/u0)
-        phiNLM(nlm,xvec): basis function (n,l,m), for xvec=[x, theta, phi]
-            x = u/u0
-            Normalized: integral(d3x * phi(nlm) * phi(nlm)) = 1
-        getFnlm(f, nlm): evaluates <f|nlm> for function f(uvec)
-        get1nlm(nlm): returns <1|nlm>, used in comparisons with L1 normalized gX
+        _r_n_x(n, x, l=ell): radial function r^{ell}_n(x), with
+            dimensionless x = u/u0. Index 'l' only relevant for 'laguerre' basis
+        getFn(f, n): evaluates 1d integral <f|r_n> for radial function r_n.
     """
     # For now, not including spherical bessel functions.
     # For j_ell, need to initialize list of zeros, alpha_{l,n}
@@ -148,9 +143,13 @@ class Basis1d():
     def _r_n_x(self, n, x, l=0):
         """Dimensionless radial function r_n^(l)(x), x=u/u0.
 
-        Normalized: integral(x**2 dx _r_n_x**2) = 1.
-        ell: specifies type of function for Laguerre, Bessel
-        n: index n=0,1,2,...nMax.
+        Normalization:
+            integral(x**(dim-1) dx _r_n_x**2) = 1.
+        ell: specifies type of radial function for Laguerre, Bessel, etc.
+        n: radial index n=0,1,2,...nMax.
+
+        Note: "wavelet" and "tophat" support arbitrary self.dim=1,2,3...
+            "laguerre" functions assume 3d normalization, self.dim=3.
         """
         # x = u/self.u0
         if self.basis['type']=="wavelet":
@@ -278,18 +277,21 @@ class Basis(Basis1d):
         * uiList: mandatory for 'tophat', the list of u_i to be used
         * uMax: mandatory for 'laguerre', setting the limit of integration on u.
             For 'wavelet' and 'tophat', can set uMax=None.
-        * dim = 3,4: if ==4, adds generation of (etype,e0,eiList,eMax)
-            Not strictly mandatory. Defaults to dim=3 if missing.
+        * dim: sets normalization of radial basis function,
+            integral(x**(dim-1) dx _r_n_x**2) = 1.
     Methods and variables:
         .basis: dict with (type, u0, uMax, uiList, etc.)
         _r_n_x(n, ell,x): radial function r^{ell}_n(u), with dimensionless x
             Passes dimensionless u/u0 to appropriate basis function
         r_n(n, ell,u): radial function r^{ell}_n(u), with dimensionful u
             _r_n_x(n, ell,u/u0)
-        phiNLM(nlm,xvec): basis function (n,l,m), for xvec=[x, theta, phi]
-            x = u/u0
-            Normalized: integral(d3x * phi(nlm) * phi(nlm)) = 1
-        getFnlm(f, nlm): evaluates <f|nlm> for function f(uvec)
+        _phi_x(nlm,xvec): basis function (n,l,m), for xvec=[x, theta, phi]
+            with dimensionless radial coordinate x = u/u0.
+            Normalized: integral(d3x * phi_x(x) * phi_x(x)) = 1
+        phi_u(nlm,uvec): basis function (n,l,m), for uvec=[u, theta, phi]
+            Normalized: integral(d3u * phi_u(u) * phi_u(u)) = u0**3,
+            or u0**dim if self.dim != 3.
+        getFnlm(f, nlm): evaluates <f|nlm> for 3d function f(uvec)
         get1nlm(nlm): returns <1|nlm>, used in comparisons with L1 normalized gX
     """
     def __init__(self, basis):
@@ -302,30 +304,20 @@ class Basis(Basis1d):
     def _phi_x(self, nlm, xvec):
         """Dimensionless basis function |nlm> = r_n(x)*Y_lm(theta,phi).
 
-        Normalized: integral(x**2 dx dOmega * _phi_x**2) = 1.
+        Normalized: integral(x**(dim-1) dx dOmega * _phi_x**2) = 1,
+            for x = u/u0.
         """
         (n, ell, m) = nlm # index: a 3-tuple
         [x, theta, phi] = xvec # spherical coordinate: a vector
         return self._r_n_x(n, x, l=ell) * ylm_real(ell, m, theta, phi)
 
-    def phi_nlm(self, nlm, uvec):
+    def phi_u(self, nlm, uvec):
         """Dimensionless basis function |nlm> = r_n(u)*Y_lm(theta,phi).
 
-        Normalized: integral(u**2 du dOmega * u0**(-3) * phi_nlm**2) = 1.
+        Normalized: integral(u**(dim-1) du dOmega * phi_nlm**2) = u0**(dim).
         """
-        if self.dim==3:
-            (n, ell, m) = nlm # index: a 3-tuple
-            [u, theta, phi] = uvec # spherical coordinate: a vector
-            return self.r_n(n, ell, u) * ylm_real(ell, m, theta, phi)
-        #else:
-        if self.dim==1:
-            # u = uvec
-            if len(nlm)==3:
-                (n, ell, m) = nlm # index: a 3-tuple
-            elif len(nlm)==2:
-                (n, ell) = nlm
-            u = uvec
-            return self.r_n(n, ell, u) * ylm_real(ell, m, theta, phi)
+        [u, theta, phi] = uvec # spherical coordinate: a vector
+        return self._phi_x(nlm, [u/self.u0, theta, phi])
 
     def get1nlm(self, n):
         """Returns <1|nlm> inner product, for L1 integrals."""
