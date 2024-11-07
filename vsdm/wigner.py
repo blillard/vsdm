@@ -169,10 +169,6 @@ class WignerG():
             if ellMax > 0:
                 # correct for different definition of D from spherical
                 self.conj_D = ('D_star' in testD_lm(ellMax, 1))
-                if self.conj_D and ('D' in testD_lm(ellMax, 1)):
-                    print('D = D_star cannot be distinguished')
-                elif ('D' not in testD_lm(ellMax, 1)) and self.conj_D==False:
-                    print('Error: spherical.Wigner.D returns neither D nor its complex conjugate.')
 
         # evaluate G(l) for all rotations in the list:
         if len(rotations) > 0:
