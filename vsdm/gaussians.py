@@ -76,6 +76,9 @@ class GaussianF():
             sum_i += c_i * gaussnorm
         return sum_i
 
+    def __call__(self, uSph):
+        return self.gU(uSph)
+
     def rescaleGaussianF(self, gFactor):
         "gvec_list for the function gFactor*fU(u)."
         return [(gvec[0]*gFactor, gvec[1], gvec[2]) for gvec in self.gvec_list]
