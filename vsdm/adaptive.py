@@ -717,7 +717,9 @@ class WaveletFnlm(EvaluateFnlm, Interpolator3d):
         Flm_n = AdaptiveFn(self.basis, self.fSph, lm, self.integ_params,
                            power2=power2, p_order=self.p_order,
                            import_fn=import_fn, use_gvar=self.use_gvar,
-                           epsilon=self.epsilon, atol_energy=self.atol_energy,
+                           epsilon=self.epsilon,
+                           atol_energy=self.atol_energy,
+                           atol_fnlm=self.atol_fnlm,
                            f_type=self.f_type, csvsave_name=self.csvsave_name)
         self.fI_lm[lm] = Flm_n
         for nlm,fnlm in Flm_n.f_nlm.items():
@@ -775,5 +777,14 @@ class WaveletFnlm(EvaluateFnlm, Interpolator3d):
     def check_extrap_accuracy(self, lm, verbose=True):
         return self.fI_lm[lm].check_extrap_accuracy(verbose=verbose)
 
+    def update_atol(self, atol_fnlm=None, atol_energy=None):
+        if atol_fnlm is not None:
+            self.atol_fnlm = atol_fnlm
+            for lm in self.fI_lm.keys():
+                self.fI_lm[lm].atol_fnlm = atol_fnlm
+        if atol_energy is not None:
+            self.atol_energy = atol_energy
+            for lm in self.fI_lm.keys():
+                self.fI_lm[lm].atol_energy = atol_energy
 
 #
