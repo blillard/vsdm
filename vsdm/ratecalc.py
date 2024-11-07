@@ -124,21 +124,15 @@ def _vecK(gV, fsQ, mI, ellMax=None, lmod=1, use_gvar=False, sparse=False):
 class RateCalc():
     """Evaluates rate from <nlm|gX> and <nlm|fgs2>, including rotations.
 
-    Input:
-        gV, fsQ: projectFnlm instances in V and Q spaces.
-            Can be taken from CSV data
-        mI: a mathcalI instance with (omegaS,mX,FDM_n).
-            Can be taken from hdf5 data
+    This is the dimensionless version of the rate, mu_R = R/g_k0,
+        where g_k0 contains the dependence on the exposure mass*time,
+        cross section normalization, local DM mass density, v0 and q0.
 
-    For detector rotations, need matrices K(ell). Otherwise, just need Tr(K).
-        .ellMax, .nvMax, .nqMax: minimum common ellMax, nvMax, nqMax
-        .mathKell: dict, saving K(ell)_{m'm} matrices
-        .trKell: dict, saving trace(K(ell)).
-        .times: dict, saving evaluation times for various matrix operations
-    * mathcalKell(ell, save) calculates K(ell) from fLM_n_gvar
-        If save, adds result to self.mathKell[ell], and trace to self.trKell[ell]
-    * muEll(rotation, save): calculates rate component mu_ell from K(ell),
-        given G_ell(rotation). If save, writes output to self.mu_ell
+    Input:
+        gV, fsQ: Fnlm instances in V and Q spaces.
+        mI: an McalI instance with modelDMSM including DM mass and form factor,
+            in the same V and Q bases as gV and fsQ.
+        ellMax,lmod: can impose new restrictions on the values of ell
     """
     # To evaluate with long list of rotations, evaluate mathcalK matrix,
     #     then get mu(ell) = Tr(G^T * K) for each G(rotation)
@@ -181,7 +175,7 @@ class RateCalc():
         return np.array(trKl)
 
 
-    def mu_garray(self, gvec_array, lmod_g=None):
+    def mu_garray(self, gvec_list, lmod_g=None):
         """Partial rate mu[ell] = R[ell]/g_k0 for a list of WignerG gvec vectors.
 
         Arguments:
@@ -195,10 +189,10 @@ class RateCalc():
         """
         if lmod_g is None: # assume that indexing of gvec matches K
             lmod_g = self.lmod
-        if len(np.shape(gvec_array))==1:
-            gvec_array = np.array([gvec_array])
+        if len(np.shape(gvec_list))==1:
+            gvec_array = np.array([gvec_list])
         else:
-            gvec_array = np.array(gvec_array)
+            gvec_array = np.array(gvec_list)
         n_rotations, len_G = np.shape(gvec_array)
         # ensure that gvec includes all ell up to ellMax:
         ellMax = self.ellMax
@@ -212,21 +206,21 @@ class RateCalc():
         if lmod_g==2 or self.lmod==2:
             lmod = 2
         # perform the calculation using only the local 'lmod'
-        gl_ix = [[Gindex(l, -l, -l, lmod=lmod_g), Gindex(l, l, l, lmod=lmod_g)]
-                 for l in range(0, ellMax+1, lmod)]
-        kl_ix = [[Gindex(l, -l, -l, lmod=self.lmod), Gindex(l, l, l, lmod=self.lmod)]
-                 for l in range(0, ellMax+1, lmod)]
-        mu_l = []
-        for gvec in gvec_array:
-            mu_l_R = []
-            for ix in range(len(kl_ix)):
-                start_Gix,end_Gix = gl_ix[ix]
-                start_Kix,end_Kix = kl_ix[ix]
-                g_l = gvec[start_Gix:end_Gix+1]
-                k_l = self.vecK[start_Kix:end_Kix+1]
-                mu_l_R += [g_l @ k_l]
-            mu_l += [mu_l_R]
-        return np.array(mu_l)
+        ells = [l for l in range(0, ellMax+1, lmod)]
+        # dict version:
+        gR_l = {}
+        k_l = {}
+        for l in ells:
+            start_k = Gindex(l, -l, -l, lmod=self.lmod)
+            end_k = Gindex(l, l, l, lmod=self.lmod)
+            k_l[l] = self.vecK[start_k:end_k+1]
+            start_g = Gindex(l, -l, -l, lmod=lmod_g)
+            end_g = Gindex(l, l, l, lmod=lmod_g)
+            gR_l[l] = gvec_array[:, start_g:end_g+1]
+        mu_l = np.zeros((n_rotations, len(ells)))
+        for ix_l,l in enumerate(ells):
+            mu_l[:, ix_l] = gR_l[l] @ k_l[l]
+        return mu_l
 
     def mu_R_l(self, wG):
         """Partial rate R[ell]/g_k0 for a WignerG instance wG."""
