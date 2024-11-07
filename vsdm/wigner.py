@@ -234,6 +234,26 @@ class WignerG():
             self.G_array += [gvec]
         return np.array(gvec)
 
+    def G_l_dict(self, lmod=None, ellMax=None):
+        """Converts self.G_array into a dict format, indexed by ell.
+
+        Optional arguments:
+        * lmod: can set lmod=2 even if self.lmod=1.
+        * ellMax: can truncate G_l at a smaller value of ellMax < self.ellMax
+        """
+        if lmod is None:
+            lmod = self.lmod
+        elif lmod==1 and self.lmod==2: # can't generate odd l if self.lmod==2.
+            lmod = 2
+        if ellMax is None or ellMax > self.ellMax:
+            ellMax = self.ellMax
+        ells = [l for l in range(0, ellMax+1, lmod)]
+        gld = {}
+        for l in ells:
+            start, end = self.Gindex(l, -l, -l), self.Gindex(l, l, l)
+            gld[l] = self.G_array[:, start:end+1]
+        return gld
+
 
     def G_l(self, R):
         """Calculates G(ell) matrices for all ell=0...ellMax.
