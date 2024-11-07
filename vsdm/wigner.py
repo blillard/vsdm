@@ -80,7 +80,6 @@ def testD_lm(l, m, printout=False):
               spherical_D_is)
     return spherical_D_is
 
-
 def testG_lm(l, m, printout=True):
     wigG = WignerG(l)
     R = quaternionic.array([2, 5, 3, 7]).normalized
@@ -110,6 +109,7 @@ def testG_lm(l, m, printout=True):
         print('(V) G_(k,m)*Ylk(x): {}'.format(Ylm_V))
         print('(V) difference: {}'.format(diffV))
     return diffM, diffV
+
 
 class WignerG():
     """Assembles the real form of the Wigner D matrix.
@@ -150,7 +150,7 @@ class WignerG():
         conjugate that is returned by Wigner.D(R), and adjusts the calculation
         of WignerG accordingly.
     """
-    def __init__(self, ellMax, rotations=[], lmod=1):
+    def __init__(self, ellMax, rotations=[], lmod=1, run_D_test=False):
         self.wigD = spherical.Wigner(ellMax)
         self.lmod = lmod
         if lmod==2 and ellMax%2==1:
@@ -162,14 +162,19 @@ class WignerG():
         #     D^ell_{mp,m} = mxD[wigD.Dindex(ell, mp, m)]
         self.rotations = [] # list of rotations to evaluate at init
         self.G_array = [] # array of G_ell 1d arrays for each rotation
-        if ellMax > 0:
-            # correct for different definition of D from spherical
-            self.conj_D = ('D_star' in testD_lm(ellMax, 1))
-        elif ('D' in testD_lm(ellMax, 1)):
-            self.conj_D = False
-        else:
-            print('Error: spherical.Wigner.D returns neither D nor its complex conjugate.')
 
+        # current version of spherical returns D^* rather than D.
+        self.conj_D = True
+        if run_D_test: # check whether conj_D should be updated:
+            if ellMax > 0:
+                # correct for different definition of D from spherical
+                self.conj_D = ('D_star' in testD_lm(ellMax, 1))
+                if self.conj_D and ('D' in testD_lm(ellMax, 1)):
+                    print('D = D_star cannot be distinguished')
+                elif ('D' not in testD_lm(ellMax, 1)) and self.conj_D==False:
+                    print('Error: spherical.Wigner.D returns neither D nor its complex conjugate.')
+
+        # evaluate G(l) for all rotations in the list:
         if len(rotations) > 0:
             # initialize self.Glist
             for R in rotations:
@@ -237,6 +242,7 @@ class WignerG():
     def G_l_dict(self, lmod=None, ellMax=None):
         """Converts self.G_array into a dict format, indexed by ell.
 
+        Each entry [l] is a human-readable matrix, sized (2*l+1) by (2*l+1)
         Optional arguments:
         * lmod: can set lmod=2 even if self.lmod=1.
         * ellMax: can truncate G_l at a smaller value of ellMax < self.ellMax
@@ -253,7 +259,6 @@ class WignerG():
             start, end = self.Gindex(l, -l, -l), self.Gindex(l, l, l)
             gld[l] = self.G_array[:, start:end+1]
         return gld
-
 
     def G_l(self, R):
         """Calculates G(ell) matrices for all ell=0...ellMax.
