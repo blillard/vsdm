@@ -258,9 +258,12 @@ class HaarExtrapolate(Interpolator1d):
             e_f2 += self.block_power_n(n)
         return e_f2
 
+    def f_x(self, x):
+        """Inherited from Interpolator1d."""
+        return self.fU(x)
 
 
-class AdaptiveFn(EvaluateFnlm,HaarExtrapolate):
+class AdaptiveFn(HaarExtrapolate,EvaluateFnlm):
     """Adaptive version of EvaluateFnlm, for fixed (l,m).
 
     Input parameters:
@@ -274,18 +277,34 @@ class AdaptiveFn(EvaluateFnlm,HaarExtrapolate):
     - atol_energy: alternative maximum for epsilon, based on the
         total distributional energy.
     - integ_params: integration parameters, including:
-        * method='gquad' for this approach
-        *
+        * method='gquad' or 'vegas' (recommend 'gquad')
+        * verbose=True to print intermediate results
 
     Objects:
     - self.hstr: the HaarString tracking the evaluated <f_lm|n> coefficients
     - self.f_n: the usual list of <f|nlm>, with lm given by self.lm.
         Note: self.f_nlm from EvaluateFnlm is redundant with self.f_n.
 
-    Methods:
-    - note that the inherited HaarString.subdivideAt() updates self.hstr.
+    Class inheritance:
+    * both EvaluateFnlm and HaarExtrapolate have __call_ and fU() methods, which
+        conflict. HaarExtrapolate is given priority: its fU(x) is a function of
+        1d variable x = u/u0. It is used to define self.flm_u().
+    * the inherited HaarString.subdivideAt() updates self.hstr.
         This method is only used in conjunction with EvaluateFnlm.updateFnlm(),
         which updates self.f_nlm.
+
+    Methods:
+    * coarsegridInitialization: evaluates all tophat integrals <f|n'>, then
+        finds wavelet coefficients <f|n> from discrete wavelet transformation
+    * diagnose_convergence: calculates f', f'', f''',... derivatives and
+        tests whether f' > f'' > f''' > .... If not, then may need to re-run
+        coarsegridInitialization with a finer grid.
+    * check_extrap_accuracy: tests absolute accuracy of extrapolated <f|n>
+        coefficients.
+    * evaluateBatchNextGen: calculates new wavelet coefficients <f|n> in the
+        next generation, if needed
+    * refineCompletely: iterate evaluateBatchNextGen until complete convergence
+    * flm_u(u): returns interpolated value of f_lm(u) for u = x*u0.
 
     Evaluates higher-n wavelet <f|nlm> coefficients for fixed (l,m)
     using the following process:
@@ -344,7 +363,7 @@ class AdaptiveFn(EvaluateFnlm,HaarExtrapolate):
         Delta(<f|nlm>) < atol * f_0
 
     Relative integration error:
-    * want to keep relative error (for individual coefficients) below some
+    * to keep relative error (for individual coefficients) below some
     threshold, e.g. 1%, even for coefficients <f|nlm> ~ atol f_0
 
 
@@ -356,7 +375,7 @@ class AdaptiveFn(EvaluateFnlm,HaarExtrapolate):
         self.lm = lm
         self.p_depth = int(math.log2(p_order+1))
         if self.p_depth > power2:
-            power2 = self.p_depth # minimum N of evaluated wavelet coeffients
+            power2 = self.p_depth # minimum N of evaluated wavelet coefficients
         # self.p_order = p_order
         self.verbose = True
         # self.use_gvar = use_gvar
@@ -657,6 +676,13 @@ class AdaptiveFn(EvaluateFnlm,HaarExtrapolate):
                     print("Extrapolation from block n={} insufficiently accurate.".format(n))
         return blocks_to_refine
 
+    def flm_u(self, u):
+        """The interpolated radial function <f|lm>(u), from Interpolator1d."""
+        x = u/self.u0
+        return self.f_x(x)
+
+    def __call__(self, u):
+        return self.flm_u(u)
 
 class WaveletFnlm(EvaluateFnlm, Interpolator3d):
     """EvaluateFnlm, augmented with wavelet extrapolation methods.
