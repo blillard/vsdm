@@ -5,7 +5,7 @@ evaluates and saves the values of <f|nlm> for the specified Basis (|nlm>) and
 function fSph(u,theta,phi), a 3d function in spherical coordinates.
 
 EvaluateFnlm contains methods for saving CSV or HDF5 files, or importing
-<f|nlm> coeffients from either type of file.
+<f|nlm> coefficients  from either type of file.
 """
 
 __all__ = ['Fnlm', 'EvaluateFnlm']
@@ -81,7 +81,7 @@ class Fnlm(Basis, Interpolator3d):
     * importFnlm_csv(csvfile):
         writes <f|nlm> data from the csv file into self.f_nlm.
     Note: the import() functions will overwrite any existing f_nlm[nlm]
-        entries with the new (n, l, m) coeffients.
+        entries with the new (n, l, m) coefficients.
     """
     def __init__(self, basis, f_type=None, use_gvar=False):
         Basis.__init__(self, basis)
