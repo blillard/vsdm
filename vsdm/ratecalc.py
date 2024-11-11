@@ -153,6 +153,8 @@ class RateCalc():
                 self.lmod = 2
             else:
                 self.lmod = 1
+        else:
+            self.lmod = lmod 
         self.ellMax = np.min([gV.ellMax, fsQ.ellMax, mI.mI_shape[0]-1])
         if ellMax is not None and ellMax < self.ellMax:
             self.ellMax = ellMax
