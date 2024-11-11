@@ -51,7 +51,7 @@ class Fnlm(Basis, Interpolator3d):
     * _makeFarray: makes f_lm_n array from f_nlm  dict.
     * update_maxes: given new (n,l,m) coefficient, increases nMax, ellMax as needed.
     * reindex_lm: puts lm_index in order of increasing 'l' and 'm'.
-    * f2nlm_energy: returns the sum of the squared coefficients <f|nlm>**2.
+    * f2nlm_norm: returns the sum of the squared coefficients <f|nlm>**2.
     * getNLMpower: returns a sorted list of [nlm, fnlm**2]
     * getLMpower: sums fnlm**2 over n for fixed (l,m): returns sorted list [lm, P_lm]
     * getLpower: sums fnlm**2 over n,m for fixed (l): returns sorted list [l, P_l]
@@ -89,7 +89,7 @@ class Fnlm(Basis, Interpolator3d):
         self.f_type = f_type
         self.f_nlm = {}
         self.t_eval = 0.
-        self.f2_energy = 0.
+        self.f2_norm = 0.
         # Optional properties of f(uvec):
         self.z_even = False
         self.phi_symmetric = False
@@ -140,15 +140,15 @@ class Fnlm(Basis, Interpolator3d):
         self.fI_lm[lm] = Interpolator1d(u_bounds, u0_vals, f_p_list)
         return self.fI_lm[lm]
 
-    def f2nlm_energy(self):
+    def f2nlm_norm(self):
         """Calculates 'sum(<f|nlm>**2)' from all coefficients."""
         if self.use_gvar:
-            self.f2_energy = gvar.gvar(0,0)
+            self.f2_norm = gvar.gvar(0,0)
         else:
-            self.f2_energy = 0.0
+            self.f2_norm = 0.0
         for f in self.f_nlm.values():
-            self.f2_energy += f**2
-        return self.f2_energy
+            self.f2_norm += f**2
+        return self.f2_norm
 
     def getNLMpower(self, nMax=None, lMax=None):
         """Dist.power for all (nlm), sorted (descending)."""
@@ -238,7 +238,7 @@ class Fnlm(Basis, Interpolator3d):
         if not self.use_gvar:
             fnlm = fnlm.mean
         self.f_nlm[nlm] = fnlm
-        self.f2_energy += fnlm**2
+        self.f2_norm += fnlm**2
         t1 = time.time() - t0
         self.t_eval += t1
         if integ_params['verbose']:
@@ -605,9 +605,9 @@ class EvaluateFnlm(Fnlm, Gnli):
         else:
             self.verbose = False
         if self.use_gvar:
-            self.f2_energy = gvar.gvar(0,0)
+            self.f2_norm = gvar.gvar(0,0)
         else:
-            self.f2_energy = 0.0
+            self.f2_norm = 0.0
         if nlmlist is not None:
             for nlm in nlmlist:
                 self.update_maxes(nlm)
@@ -623,10 +623,10 @@ class EvaluateFnlm(Fnlm, Gnli):
                 else:
                     self.f_nlm[nlm] = fnlm.mean
                 f2_power = fnlm**2
-                self.f2_energy += f2_power
+                self.f2_norm += f2_power
                 if self.verbose:
                     print("Result: <f|{}> = {}".format(nlm, fnlm))
-                    print("\ttotal energy: {}".format(self.f2_energy))
+                    print("\ttotal energy: {}".format(self.f2_norm))
                 if csvsave_name is not None:
                     # save as you go:
                     # append this f(nlm) to the CSV file 'csvsave_name',
