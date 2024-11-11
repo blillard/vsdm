@@ -148,13 +148,13 @@ class RateCalc():
         self.mI = mI
         self.use_gvar = use_gvar
         if lmod is None:
-            if gV.center_Z2 or fsQ.center_Z2:
+            if gV.center_Z2 or fsQ.center_Z2 or mI.center_Z2:
                 # only need one to be true to set ell==even:
                 self.lmod = 2
             else:
                 self.lmod = 1
         else:
-            self.lmod = lmod 
+            self.lmod = lmod
         self.ellMax = np.min([gV.ellMax, fsQ.ellMax, mI.mI_shape[0]-1])
         if ellMax is not None and ellMax < self.ellMax:
             self.ellMax = ellMax
