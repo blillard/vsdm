@@ -23,12 +23,12 @@ A few explanatory notebooks are included in the 'tools' directory:
 - **Wigner D and G:** a brief introduction to the Wigner $D^{(\ell)}$ and $G^{(\ell)}$ matrices, which encode the action of rotations on complex or real spherical harmonics (respectively). 
 
 The 'tools' directory also includes three sample Python codes:
-- **demo_fs2.py**: uses the WaveletFnlm method to calculate batches of wavelet-harmonic coefficients $\langle f_s^2 | n \ell m \rangle$, for the particle-in-a-box momentum form factors $f_s^2(\vec q)$ used in the demonstration notebooks and arXiv:2310.01483. 
-- **demo_gX.py**: calculates $\langle g_\chi | n \ell m \rangle$ for a velocity distribution example $g_\chi(\vec v)$, defined as the sum of four Gaussians with different average velocities and dispersions. This is the velocity distribution used in "Calculating Coefficients" and "Rate Calculation". 
+- **demo_fs2.py**: uses the WaveletFnlm method to calculate batches of wavelet-harmonic coefficients $\langle f_s^2 | n \ell m \rangle$, for the particle-in-a-box momentum form factors $f_s^2(\vec{q})$ used in the demonstration notebooks and arXiv:2310.01483. 
+- **demo_gX.py**: calculates $\langle g_\chi | n \ell m \rangle$ for a velocity distribution example $g_\chi(\vec{v})$, defined as the sum of four Gaussians with different average velocities and dispersions. This is the velocity distribution used in "Calculating Coefficients" and "Rate Calculation". 
 - **SHM_gX.py**: this tool calculates the wavelet-harmonic expansion for the Standard Halo Model (SHM) velocity distribution, as a function of galactic frame Earth velocity, using the adaptive WaveletFnlm method. 
 
 Four CSV files are included in the 'demo' directory: 
-- 'demo_fs2.csv' and 'demo_fs2_alt.csv', with the values of $\langle f_s^2 | n \ell m \rangle$ for the $\vec n = (1, 1, 2)$ and $\vec n = (3, 2, 1)$ excited states, respectively, of the particle-in-a-box model. 
+- 'demo_fs2.csv' and 'demo_fs2_alt.csv', with the values of $\langle f_s^2 | n \ell m \rangle$ for the $\vec{n} = (1, 1, 2)$ and $\vec{n} = (3, 2, 1)$ excited states, respectively, of the particle-in-a-box model. 
 - 'gX_model4.csv': $\langle g_\chi | n \ell m \rangle$ for the four-gaussian velocity distribution.
 - 'SHM_v250.csv': $\langle g_\chi | n \ell m \rangle$ for the Standard Halo Model, with a dark matter wind speed of 250 km/s. The galactic escape velocity and local group circular speed are set to 544 km/s and 238 km/s, respectively. 
 
