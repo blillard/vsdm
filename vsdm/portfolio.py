@@ -5,23 +5,26 @@
 __all__ = ['Portfolio', 'str_to_bdict', 'str_to_dnames', 'update_namedict',
            'dname_manager', 'DEFAULT_TYPES', 'DNAME_F', 'DNAME_G', 'DNAME_I',
            'DNAME_W', 'TNAME_mcalI', 'TNAME_gX', 'TNAME_fs2', 'TNAME_generic',
-           'TNAME_rotations', 'TNAME_mcalK', '_dset_exists']
+           'TNAME_rotations', 'TNAME_mcalK', 'LM_IX_NAME', '_dset_exists']
 
 
 import numpy as np
-import time
-import csv  
-import os.path
 import h5py
 import gvar
 
 from .utilities import *
 
+"""
+    Global names for hdf5 groups and subgroups (types and databases)
+    DNAME_: database name for saved data (e.g. <f|nlm>, gaussian Gnl, ...)
+    LM_IX_NAME: maps the rows of DNAME_F to the corresponding (l, m).
+"""
 # dataset names for hdf5 files:
 DNAME_F = 'fnlm'
 DNAME_G = 'Gnl'
 DNAME_I = 'Ilvq'
 DNAME_W = 'wG'
+LM_IX_NAME = 'lm_index'
 # _dnames_ = ['DNAME_F', 'DNAME_G', 'DNAME_I', 'DNAME_W']
 # saves gvar matrix to 'NAME_mean' and 'NAME_sdev'.
 # subgroup 'type' names for hdf5 files:
@@ -90,7 +93,7 @@ def str_to_dnames(strdict):
         dnames[dname] = dn_index
     return dnames
 
-def dname_manager(dname_dict, dname, sepchar='__'):
+def dname_manager(dname_dict, dname, sepchar='__', delete=False):
     """Reads dataset names from dname_dict, modifies dname or dname_dict.
 
     Format:
@@ -102,10 +105,16 @@ def dname_manager(dname_dict, dname, sepchar='__'):
             default: '__'. Avoid anything already being used in the names.
     Used to label new files as 'dname_2', 'dname_3', etc.
         e.g. as opposed to 'dname_1_1', 'dname_1_1_1', ...
+
+    When called using delete=True, it removes dname from dname_dict.
     """
     dict_out = dname_dict # avoid modifying the input
     if dname in dict_out:
-        # then it needs an integer-valued suffix...
+        # dname can be deleted from the dictionary:
+        if delete:
+            del dict_out[dname]
+            return dict_out, dname
+        # Otherwise, dname needs an integer-valued suffix...
         name_in_dict = True
         while name_in_dict:
             #check if i += 1 is available :
@@ -158,9 +167,14 @@ def update_namedict(hdf5model, sepchar='__'):
         if items '4' and '5' were deleted.
     dname_manager handles this: before trying to name something _6 it checks
         whether _6 already exists, and moves on to the first available integer.
+
     Note 2: This also adds subgroup names to the name_dict.
         This has little effect: dname_manager does not manage subgroups,
         so any attempt to name a dataset with a group name will lead to error.
+
+    Note 3. Deleting a database from the hdf5 file does not remove its name
+        from the dname_manager. The name entry also needs to be deleted from
+        group.attrs.
     """
     return name_dict
 
@@ -338,10 +352,22 @@ class Portfolio():
         data_attr = {}
         with h5py.File(self.hdf5file,'r') as fhd5:
             mgroup = fhd5[tname + '/' + model]
-            data = mgroup[dname]
-            for lbl,val in data.attrs.items():
+            data = np.array([row for row in mgroup[dname]])
+            for lbl,val in mgroup[dname].attrs.items():
                 data_attr[lbl] = val #import the basis metadata
             return data, data_attr
+
+    def delete_folio(self, tname, model, dname):
+        """Deletes dataset 'dname' from hdf5."""
+        with h5py.File(self.hdf5file,'a') as fhd5:
+            mgroup = fhd5[tname + '/' + model]
+            if dname in mgroup.keys():
+                del mgroup[dname]
+                name_record, dname = dname_manager(group.attrs, dname, delete=True)
+                group.attrs.update(name_record) # save the update to group.attrs
+                print("Deleted dataset '{}' from group '{}'.".format(dname,model))
+            else:
+                print("No dataset '{}' in group '{}'.".format(dname,model))
 
     def update_folio(self, tname, model, dname, newdata={}, attrs={}):
         """Modifies the dataset 'dname' with the provided newdata.
@@ -362,7 +388,7 @@ class Portfolio():
             dim = len(dshape) # dimensionality of array
             for index,value in newdata.items():
                 # make sure index is valid
-                if len(index)!=dim:
+                if len(index)>dim:
                     print("Warning: data includes invalid entries.")
                     continue
                 bad_index = False

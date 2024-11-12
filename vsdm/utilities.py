@@ -4,34 +4,46 @@ Physics functions:
     fdm2_n: DM-SM particle scattering form factor, normalized to F(q=q0) = 1.
         Value of q0 = q0_fdm is defined in units.py in units of qBohr.
     g_k0: scattering event rate scaling factor with target exposure
-Physics functions require .units, e.g. for q0 and g_k0().
+These functions require .units, e.g. for q0 and g_k0().
+
+Mathematics:
+    plm_norm: normalized associated Legendre polynomials
+    ylm_real: real spherical harmonics (m<0 -> sin(m phi), m>0 -> cos(m phi))
+        Using plm_norm for substantially faster evaluation.
+    ylm_cx: complex-valued spherical harmonics (also using plm_norm).
+    sph_to_cart, cart_to_sph: Cartesian/spherical coordinate conversions.
+    NIntegrate: multipurpose numerical integrator. Methods include VEGAS
+        or gaussian quadrature from scipy.
 
 Utilities:
     makeNLMlist: produces complete list of (nlm) coefficients given
       values for nMax and ellMax, n=0,1...nMax and ell=0,1,...ellMax
     splitGVARarray: separates gvar valued matrix into f.mean, f.sdev matrices
     joinGVARarray: combines f.mean, f.sdev matrices into gvar valued matrix
+
+Interpolation:
+    Interpolator1d: 1d interpolation object, representing f(x) with a
+        piecewise-defined polynomial function.
+    Interpolator3d: represents a 3d function as a sum of spherical harmonics.
+        Contains a dictionary of 1d Interpolator objects, labeled by (l,m).
 """
 
-__all__ = ['g_k0', 'fdm2_n', 'mathsinc', 'dV_sph', 'legendrePl',
-           'plm_real', 'ylm_real', 'makeNLMlist',
+__all__ = ['g_k0', 'fdm2_n', 'mathsinc', 'dV_sph',
+           'plm_real', 'plm_norm', 'ylm_real', 'ylm_cx', 'ylm_scipy',
+           'makeNLMlist',
            'splitGVARarray', 'joinGVARarray', '_LM_to_x', '_x_to_LM',
            'sph_to_cart', 'cart_to_sph', 'compare_index_to_shape',
            '_map_int_to_index', 'gX_to_tgX', 'assign_indices',
-           'getLpower', 'getLMpower', 'getNLMpower',
-           'Interpolator']
+           'getLpower', 'getLMpower', 'getNLMpower', 'NIntegrate',
+           'Interpolator1d', 'Interpolator3d']
 
 import math
+import numba
 import numpy as np
 import scipy.special as spf
-# import vegas # numeric integration
+import scipy.integrate as sint # gaussian quadrature
+import vegas # Monte Carlo integration
 import gvar # gaussian variables; for vegas
-# import time
-# import quaternionic # For rotations
-# import spherical #For Wigner D matrix
-# import csv # file IO for projectFnlm
-# import os.path
-# import h5py
 
 from .units import *
 
@@ -54,7 +66,7 @@ def fdm2_n(q, n):
     return (q0_fdm/q)**(2*n)
 
 """
-    Mathematics functions: legendrePl, dV_sph integration Jacobian
+    Mathematics functions: dV_sph integration Jacobian
 """
 ### Differing conventions:
 # numpy/scipy sinc functions are normalized with extra factor of pi
@@ -68,21 +80,23 @@ def dV_sph(rvec):
     ## rvec = [r, theta, phi]
     return rvec[0]**2 * math.sin(rvec[1])
 
-def legendrePl(ell, z):
-    poly = spf.legendre(ell, monic=False)
-    return poly(z)
-
 
 """
     Plm and Ylm functions
 """
 
 def plm_real(ell, m, z):
+    """scipy version of associated Legendre polynomials.
+
+    Reliable up to ell=150 (m=0,1,...,150), but can produce
+        incorrect results in Ylm when multiplied against sqrt(factorials).
+    Very slow.
+    """
     ## lpmn calculates P_mn(z) for all m and n less than or equal to the m,n provided.
     # A more efficient code would vectorize Ylm to take advantage of this
     return spf.lpmn(math.fabs(m), ell, z)[0][-1][-1]
 
-def ylm_real(ell, m, theta, phi):
+def ylm_scipy(ell, m, theta, phi):
     absm = int(math.fabs(m))
     # math.factorial is faster by 20%, but scipy.gamma allows ell > 100
     sqrtfact = (-1)**m * (math.sqrt((2*ell+1)/(4*math.pi)
@@ -95,6 +109,95 @@ def ylm_real(ell, m, theta, phi):
         return sqrtfact * Plmpart
     else:
         return math.sqrt(2) * sqrtfact * Plmpart * math.cos(m * phi)
+
+
+@numba.jit("double(uint32,uint32,double)", nopython=True,
+           locals={'m_sqrd':numba.double, 'Pk':numba.double,
+                   'Pk_minus2':numba.double,
+                   'Pk_minus1':numba.double,
+                   'x2':numba.double, 'sqrt_1_x2':numba.double})
+def plm_norm(ell, m, x):
+    """The 'normalized' associated Legendre polynomials.
+
+    Defined as: (-1)**m * sqrt[(l-m)! / (l+m)!] * P_lm(x)
+    For m=0, this is identical to the usual P_l(x).
+
+    Method:
+    * Using Bonnet recursion for the m=0 special case (upwards from l=0,1).
+    * For m>0, using 'horizontal' recursion from (m,m) to (l,m),
+        using the 'associated' Bonnet recursion relations.
+
+    Numerically stable for all x in [-1,1], even arbitrarily close to x**2=1.
+    (e.g. x = 1 - 1e-15).
+    Permits the accurate calculation of P_lm(x) up to at least ell=m=1e6.
+    """
+    # poch_plus = 1. # (l+m)!/l!
+    # poch_minus = 1. # l!/(l-m)!
+    if ell==0:
+        return 1
+    if x < -1:
+        x = -1
+    elif x > 1:
+        x = 1
+    x2 = x**2
+    if x2==1:
+        # Evaluate now, to avoid 1/sqrt(1-x**2) division errors.
+        return int(m==0) * (x)**(ell%2)
+    sqrt_1_x2 = (1-x2)**0.5
+    if m==0:
+        # Upward recursion along m=0 to (l,0). Bonnet:
+        if ell==1:
+            return x
+        Pk_minus2 = 1
+        Pk_minus1 = x
+        for k in range(2, ell+1):
+            Pk = ((2-1/k)*x*Pk_minus1 - (1-1/k)*Pk_minus2)
+            Pk_minus2 = Pk_minus1
+            Pk_minus1 = Pk
+        return Pk
+        # get the (l,1) term, from the (l-1,0) and (l,0) Legendre polynomials:
+    # else: use horizontal recursion from (m,m) to (ell,m)
+    # modified Bonnet:
+    sqrt_1_x2 = (1-x2)**0.5
+    m_sqrd = 1. # l!/(l-m)! * l!/(l+m)!
+    for i in range(m):
+        # until i=m-1:
+        m_sqrd *= 1 - 0.5/(1+i)
+    Pk_minus2 = sqrt_1_x2**m * m_sqrd**0.5 #l=m
+    if ell==m:
+        return Pk_minus2
+    Pk_minus1 = (2*m+1)**0.5 * x * Pk_minus2 #l=m+1
+    if ell==m+1:
+        return Pk_minus1
+    for k in range(m+2, ell+1):
+        Pk = ((2*k-1)*x*Pk_minus1 - ((k-1)**2-m**2)**0.5*Pk_minus2)/(k**2-m**2)**0.5
+        Pk_minus2 = Pk_minus1
+        Pk_minus1 = Pk
+    return Pk
+
+
+@numba.jit("complex128(uint32,int32,double,double)", nopython=True)
+def ylm_cx(ell, m, theta, phi):
+    "Complex-valued spherical harmonics."
+    phase_phi = np.exp(1j * m * phi)
+    if m < 0:
+        m = -m
+    else:
+        phase_phi *= (-1)**(m%2)
+    return ((2*ell+1)/(4*np.pi))**0.5 * phase_phi * plm_norm(ell, m, np.cos(theta))
+
+@numba.jit("double(uint32,int32,double,double)", nopython=True)
+def ylm_real(ell, m, theta, phi):
+    "Real-valued spherical harmonics."
+    if m==0:
+        return ((2*ell+1)/(4*np.pi))**0.5 * plm_norm(ell, m, np.cos(theta))
+    if m < 0:
+        m = -m
+        return ((2*ell+1)/(2*np.pi))**0.5 * plm_norm(ell, m, np.cos(theta)) * np.sin(m*phi)
+    return ((2*ell+1)/(2*np.pi))**0.5 * plm_norm(ell, m, np.cos(theta)) * np.cos(m*phi)
+
+
+
 
 """
     functions for (nlm) lists and gvar/[mean,sdev] conversions:
@@ -349,19 +452,119 @@ def getLpower(f_nlm):
         powerL[key] = power
     return powerL
 
-class Interpolator():
-    """Interpolated representation of a function f(u).
+
+# Numerical integration with gaussian quadrature:
+def intGaussQuad(integrand, volume, quadg_params):
+    """Gaussian quadrature integrals, using quadg_params dictionary.
+
+    Using VEGAS form of integrand([x1,x2,...]), volume=[[x1a,x1b],[x2a,x2b]...]
+    quadg_params: a dict containing the precision goals
+    """
+    if 'rtol' in quadg_params:
+        rtol = quadg_params['rtol']
+    else:
+        rtol = 1e-6
+    if 'atol' in quadg_params:
+        atol = quadg_params['atol']
+    elif 'atol_f' in quadg_params:
+        atol = quadg_params['atol_f']
+    elif 'atol_e' in quadg_params:
+        atol = quadg_params['atol_e']
+    else:
+        atol = 1e-6
+    verbose = False
+    if 'verbose' in quadg_params:
+        verbose = quadg_params['verbose']
+    # complex = False
+    # if 'complex' in quadg_params:
+    #     complex = quadg_params['complex']
+    ndim = len(volume) # dimensionality
+    assert ndim in [1,2,3], "Only using quadrature for 1d, 2d, or 3d integrands"
+    if ndim==1:
+        def sciFunc(x):
+            return integrand([x])
+        result = sint.quad(sciFunc, volume[0][0], volume[0][1],
+                           epsabs=atol, epsrel=rtol)
+    elif ndim==2:
+        def sciFunc(x,y):
+            return integrand([x,y])
+        # note: scipy uses backwards func(y,x) ordering
+        result = sint.dblquad(sciFunc, volume[1][0], volume[1][1],
+                              volume[0][0], volume[0][1],
+                              epsabs=atol, epsrel=rtol)
+    elif ndim==3:
+        def sciFunc(x,y,z):
+            return integrand([x,y,z])
+        # note: scipy uses backwards func(z,y,x) ordering
+        result = sint.tplquad(sciFunc, volume[2][0], volume[2][1],
+                              volume[1][0], volume[1][1],
+                              volume[0][0], volume[0][1],
+                              epsabs=atol, epsrel=rtol)
+    value, error = result
+    resultGVAR = gvar.gvar(value, error)
+    if verbose:
+        print(resultGVAR)
+    return resultGVAR
+
+
+# Numerical integration with VEGAS:
+def intVegas(integrand, volume, vegas_params):
+    "Tool for performing VEGAS integrals using vegas_params dictionary."
+    # Unpack VEGAS parameters
+    nitn_init = vegas_params['nitn_init']
+    nitn = vegas_params['nitn']
+    neval = int(vegas_params['neval'])
+    if 'verbose' in vegas_params:
+        verbose = vegas_params['verbose']
+    else:
+        verbose = False
+    if 'neval_init' in vegas_params:
+        neval_init = int(vegas_params['neval_init'])
+    else:
+        neval_init = neval
+    dim = len(volume) # dimensionality of the integral
+    # Perform the integration:
+    integrator = vegas.Integrator(volume)
+    # adjust integrator to integrand:
+    integrator(integrand, nitn=nitn_init, neval=neval)
+    result = integrator(integrand, nitn=nitn, neval=neval)
+    if verbose:
+        print(result.summary())
+    return result
+
+def NIntegrate(integrand, volume, integ_params, printheader=None):
+    "Numerical integration, using VEGAS or scipy.integrate.quad."
+    if 'method' not in integ_params:
+        integ_params['method'] = 'vegas'
+    if 'verbose' not in integ_params:
+        integ_params['verbose'] = False
+    if integ_params['verbose']==True and printheader is not None:
+        print(printheader)
+    # Numerical Integration:
+    if integ_params['method'] == 'vegas':
+        out = intVegas(integrand, volume, integ_params)
+    elif integ_params['method'] == 'gquad':
+        out = intGaussQuad(integrand, volume, integ_params)
+    return out
+
+
+class Interpolator1d():
+    """Interpolated representation of a 1d function f(u).
 
     Arguments:
         u_bounds: list of boundaries between interpolation regions, length [n+1]
         u0_vals: points at which f derivatives are evaluated --> (u-u0)**p
-        f0123_vals: derivatives d^(p)f/du^p, for p=0,1,2,3...
+        f_p_list: derivatives d^(p)f/du^p, for p=0,1,2,3...
+            Note the inclusion of df_p[0] = f(x0).
     """
 
-    def __init__(self, u_bounds, u0_vals, f0123_vals):
+    def __init__(self, u_bounds, u0_vals, f_p_list):
         self.u_bounds = u_bounds
         self.u0_vals = u0_vals
-        self.f0123_vals = f0123_vals
+        self.f_p_list = f_p_list
+
+    def __call__(self, u):
+        return self.fU(u)
 
     def map_u_ix(self, u):
         assert self.u_bounds[0] <= u <= self.u_bounds[-1], "u out of range"
@@ -373,32 +576,70 @@ class Interpolator():
     def fU(self, u):
         ix = self.map_u_ix(u)
         u0 = self.u0_vals[ix]
-        f0123 = self.f0123_vals[ix]
+        df_p_x = self.f_p_list[ix]
         fu = 0.0
-        for p,f_p in enumerate(f0123):
+        for p,f_p in enumerate(df_p_x):
             fu += f_p/math.factorial(p) * (u-u0)**p
         return fu
 
     def df_du_p(self, p, u):
         "Derivative d^(p)f/du^p"
         ix = self.map_u_ix(u)
-        f0123 = self.f0123_vals[ix]
+        df_p_x = self.f_p_list[ix]
         sum = 0.0
-        for k in range(p, len(f0123)):
-            sum += f0123[k] * (u-u0)**(k-p) / math.factorial(k-p)
+        for k in range(p, len(df_p_x)):
+            sum += df_p_x[k] * (u-u0)**(k-p) / math.factorial(k-p)
         return sum
 
-    def f_p_u(self, p, ulist):
-        if p==0:
-            return np.array([self.fU(u) for u in ulist])
+
+
+class Interpolator3d():
+    """Interpolated representation of a 3d function f(u) = sum_lm f_lm(u).
+
+    Arguments:
+        fI_lm_dict: list of Interpolator1d objects, indexed by (lm)
+        complex: whether to use real or complex spherical harmonics
+    """
+
+    def __init__(self, fI_lm_dict, complex=False):
+        self.fI_lm = fI_lm_dict
+        self.complex = complex
+
+    def __call__(self, uSph):
+        return self.fU(uSph)
+
+    def fU(self, uSph):
+        "Evaluating f(u) at a point uSph=(u,theta,phi)."
+        (u,theta,phi) = uSph
+        fu = 0.
+        if self.complex:
+            for lm,Flm in self.fI_lm.items():
+                (ell, m) = lm
+                fI_lm_u = Flm(u)
+                fu += ylm_cx(ell, m, theta, phi) * fI_lm_u
         else:
-            return np.array([self.df_du_p(p, u) for u in ulist])
+            for lm,Flm in self.fI_lm.items():
+                (ell, m) = lm
+                fI_lm_u = Flm(u)
+                fu += ylm_real(ell, m, theta, phi) * fI_lm_u
+        return fu
 
+    def flm_u(self, lm, u):
+        "Evaluating <f|lm>(u) at radial coordinate u."
+        return self.fI_lm[lm](u)
 
+    def flm_grid(self, ulist):
+        """Evaluates all fI_lm(u) for all [u in ulist].
 
-
-
-
+        Output is a 2d numpy array, with rows lm ordered by self.fI_lm.keys().
+        """
+        flmgrid = np.zeros([len(fI_lm.keys()), len(ulist)])
+        ix = 0
+        for lm,Flm in self.fI_lm.items():
+            fI_lm_ug = np.array([Flm(u) for u in ulist])
+            flmgrid[ix] = fI_lm_ug
+            ix += 1
+        return flmgrid
 
 
 

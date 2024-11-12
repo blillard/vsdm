@@ -17,6 +17,7 @@ classifiers = [
 ]
 requires-python = ">=3.7"
 dependencies = [
+    "numba",
     "scipy",
     "vegas",
     "h5py",
