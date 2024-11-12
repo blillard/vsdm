@@ -544,7 +544,7 @@ class EvaluateFnlm(Fnlm, Gnli):
 
     Methods and variables:
         updateFnlm: adds new f[nlm], or overwrites old value
-        getDistEnergy: calculates integral(d^3u/u_0**3 fSph(u)**2)
+        get_f2norm: calculates integral(d^3u/u_0**3 fSph(u)**2)
 
     For spherical Haar wavelet basis functions, an improved method
         is available: WaveletFnlm, from adaptive.py.
@@ -664,7 +664,7 @@ class EvaluateFnlm(Fnlm, Gnli):
             self.writeFnlm_csv(csvsave_name, nlmlist=[nlm])
         return fnlm #in case anyone wants it
 
-    def getDistEnergy(self, integ_params, integrateG=False):
+    def get_f2norm(self, integ_params, integrateG=False):
         """Integral of f**2/self.u0**3 (the distributional energy, rescaled by u0).
 
         mSymmetry and lSymmetry restrict integration region to a subregion
@@ -672,7 +672,7 @@ class EvaluateFnlm(Fnlm, Gnli):
         For l only expect lSymmetry=2, e.g. z <-> -z.
         m can take larger values than 2 (commonly 4), e.g. polygonal cylindrical symmetry
 
-        Saves result to self.basis['distEnergy']
+        Saves result to self.basis['f2norm']
         """
         if self.is_gaussian and not integrateG:
             energyG = self.norm_energy()
@@ -698,9 +698,9 @@ class EvaluateFnlm(Fnlm, Gnli):
             energy = (NIntegrate(power_u, volume, integ_params)
                       * 2*math.pi * theta_Zn)
             if integ_params['verbose']==True:
-                print('energy: {}'.format(energy))
+                print('f2 norm: {}'.format(energy))
             # include result in self.basis[]
-            self.basis['distEnergy'] = energy
+            self.basis['f2norm'] = energy
             return energy
         #else:
         phi_region = [0, 2*math.pi/self.phi_cyclic]
@@ -716,9 +716,9 @@ class EvaluateFnlm(Fnlm, Gnli):
         energy = (NIntegrate(power_u, volume, integ_params)
                   * self.phi_cyclic * theta_Zn)
         if integ_params['verbose']==True:
-            print('energy: {}'.format(energy))
+            print('f2 norm: {}'.format(energy))
         # include result in self.basis[]
-        self.basis['distEnergy'] = energy
+        self.basis['f2norm'] = energy
         return energy
 
 

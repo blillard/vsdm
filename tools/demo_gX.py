@@ -84,7 +84,7 @@ def main(n_max, l_max):
     wave_extp = vsdm.WaveletFnlm(bdict, gXmodel, integ_params,
                                  power2_lm={}, p_order=3,
                                  epsilon=epsilon,
-                                 atol_energy=atol_E,
+                                 atol_f2norm=atol_E,
                                  atol_fnlm=atol_f,
                                  max_depth=5,
                                  refine_at_init=False,

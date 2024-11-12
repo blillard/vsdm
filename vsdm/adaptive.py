@@ -249,7 +249,7 @@ class HaarExtrapolate(Interpolator1d):
             sum_alpha += fact_a * x2**alpha * sum_jk
         return sum_alpha
 
-    def energy_fx2(self):
+    def norm_fx2(self):
         """Uses Taylor series to estimate the norm-energy.
 
         Integral: int(x**(d-1)dx * f**2), for 0<x<1."""
@@ -274,8 +274,8 @@ class AdaptiveFn(HaarExtrapolate,EvaluateFnlm):
         * for the largest f_lm harmonic modes, epsilon should match the
           global precision goal.
         * for smaller f_lm, epsilon can be less precise.
-    - atol_energy: alternative maximum for epsilon, based on the
-        total distributional energy.
+    - atol_f2norm: alternative maximum for epsilon, based on the
+        total distributional energy (f^2 norm).
     - integ_params: integration parameters, including:
         * method='gquad' or 'vegas' (recommend 'gquad')
         * verbose=True to print intermediate results
@@ -326,7 +326,7 @@ class AdaptiveFn(HaarExtrapolate,EvaluateFnlm):
     PRECISION.
     Keeping three (3) types of global precision:
     (1) epsilon: relative tolerance for all numerical integrals
-    (2) atol_energy: the threshold for dropping contributions to sum_nlm <f|nlm>**2
+    (2) atol_f2norm: the threshold for dropping contributions to sum_nlm <f|nlm>**2
     (3) atol_fnlm: the threshold for dropping individual <f|nlm> terms.
 
     Relatedly, integ_params includes related tolerances for the numeric
@@ -369,7 +369,7 @@ class AdaptiveFn(HaarExtrapolate,EvaluateFnlm):
 
     """
     def __init__(self, basis, fSph, lm, integ_params, power2=5, p_order=3,
-                 import_fn=None, epsilon=1e-4, atol_energy=None, atol_fnlm=None,
+                 import_fn=None, epsilon=1e-4, atol_f2norm=None, atol_fnlm=None,
                  f_type=None, csvsave_name=None, use_gvar=True):
         t0 = time.time()
         self.lm = lm
@@ -389,7 +389,7 @@ class AdaptiveFn(HaarExtrapolate,EvaluateFnlm):
             or using epsilon.
         If atol_e or atol_f is not defined, then NIntegrate only uses rtol.
 
-        Class parameters atol_energy, atol_fnlm determine when to terminate the
+        Class parameters atol_f2norm, atol_fnlm determine when to terminate the
             expansion in <f|nlm>. Their counterparts in integ_params allow for
             higher precision during numerical integration.
         """
@@ -401,8 +401,8 @@ class AdaptiveFn(HaarExtrapolate,EvaluateFnlm):
         if 'rtol_f' not in integ_params:
             integ_params['rtol_f'] = epsilon
         if 'atol_e' not in integ_params:
-            if atol_energy is not None:
-                integ_params['atol_e'] = 0.05 * atol_energy
+            if atol_f2norm is not None:
+                integ_params['atol_e'] = 0.05 * atol_f2norm
             else:
                 integ_params['atol_e'] = None
         if 'atol_f' not in integ_params:
@@ -416,10 +416,10 @@ class AdaptiveFn(HaarExtrapolate,EvaluateFnlm):
             self.atol_fnlm = atol_fnlm
         else:
             self.atol_fnlm = integ_params['atol_f']
-        if atol_energy is not None:
-            self.atol_energy = atol_energy
+        if atol_f2norm is not None:
+            self.atol_f2norm = atol_f2norm
         else:
-            self.atol_energy = integ_params['atol_e']
+            self.atol_f2norm = integ_params['atol_e']
         self.integ_f = integ_params
         self.integ_f['atol'] = integ_params['atol_f']
         self.integ_f['rtol'] = integ_params['rtol_f']
@@ -470,7 +470,7 @@ class AdaptiveFn(HaarExtrapolate,EvaluateFnlm):
         descending from self.blocks_to_refine are assumed to be inaccurate.
 
         At the end of initialization, the angular power P_lm for this harmonic
-        mode can be estimated from self.f2nlm_energy().
+        mode can be estimated from self.f2_norm().
 
         Step 5. Evaluate <f|nlm> for the descendants of blocks_to_refine.
         - Use evaluateBlockNextGen(n) on all n in blocks_to_refine.
@@ -495,7 +495,7 @@ class AdaptiveFn(HaarExtrapolate,EvaluateFnlm):
 
         """Step 2. Use estimate for |<f|nlm>|^2 norm to check precision goals."""
         # calculate the initial norm-energy for this set
-        power_lm_init = coarseGrid.f2nlm_energy()
+        power_lm_init = coarseGrid.f2_norm()
         if self.verbose:
             print("integration time: {}".format(self.tGrid))
             print("Power_lm = {}".format(power_lm_init))
@@ -504,7 +504,7 @@ class AdaptiveFn(HaarExtrapolate,EvaluateFnlm):
                 rdelta_P = delta_Plm/power_lm_init.mean
                 print("\tuncertainty: {}".format(delta_Plm))
                 print("\trelative error: {}".format(rdelta_P))
-                atol_e = self.atol_energy
+                atol_e = self.atol_f2norm
                 if atol_e is not None and atol_e>delta_Plm:
                     print("Warning: delta_Plm is larger than atol_e={}".format(atol_e))
                 if rdelta_P>self.epsilon:
@@ -694,7 +694,7 @@ class WaveletFnlm(EvaluateFnlm, Interpolator3d):
     Arguments:
     - EvaluateFnlm parameters. The intermediate steps (AdaptiveFn) will use gvar,
         but the high-level EvaluateFnlm won't if use_gvar=False.
-    - AdaptiveFn parameters: p_order, epsilon, atol_energy.
+    - AdaptiveFn parameters: p_order, epsilon, atol_f2norm.
     - power2_lm: dict of lm modes to initialize by default, potentially
         with different values of power2 for each one.
     - import_fnlm: can read in previously evaluated <f|nlm> coefficients,
@@ -702,11 +702,11 @@ class WaveletFnlm(EvaluateFnlm, Interpolator3d):
     """
     def __init__(self, basis, fSph, integ_params, power2_lm={}, p_order=3,
                  max_depth=5, refine_at_init=False, import_fnlm=None,
-                 epsilon=1e-6, atol_energy=None, atol_fnlm=None,
+                 epsilon=1e-6, atol_f2norm=None, atol_fnlm=None,
                  f_type=None, csvsave_name=None, use_gvar=True):
         self.p_order = p_order
         self.epsilon = epsilon
-        self.atol_energy = atol_energy
+        self.atol_f2norm = atol_f2norm
         self.atol_fnlm = atol_fnlm
         self.max_depth = max_depth # for refineCompletely() cutoff.
         self.converged_lm = {}
@@ -728,7 +728,7 @@ class WaveletFnlm(EvaluateFnlm, Interpolator3d):
         # Flm_n = {} #placeholding for saving AdaptiveFn objects.
         for lm,power2 in power2_lm.items():
             power_lm = self.initialize_lm(lm, power2)
-            if refine_at_init and power_lm > 0.05*atol_energy:
+            if refine_at_init and power_lm > 0.05*atol_f2norm:
                 self.refine_lm(lm, max_depth=max_depth)
         # saves Flm_n as self.fI_lm
 
@@ -744,7 +744,7 @@ class WaveletFnlm(EvaluateFnlm, Interpolator3d):
                            power2=power2, p_order=self.p_order,
                            import_fn=import_fn, use_gvar=self.use_gvar,
                            epsilon=self.epsilon,
-                           atol_energy=self.atol_energy,
+                           atol_f2norm=self.atol_f2norm,
                            atol_fnlm=self.atol_fnlm,
                            f_type=self.f_type, csvsave_name=self.csvsave_name)
         self.fI_lm[lm] = Flm_n
@@ -756,7 +756,7 @@ class WaveletFnlm(EvaluateFnlm, Interpolator3d):
             self.converged_lm[lm] = False
         self.t_eval += Flm_n.t_eval
         if self.p_order==0:
-            return Flm_n.energy_fx2()
+            return Flm_n.norm_fx2()
         # print prediction for convergence of polynomial extrapolation:
         if self.verbose:
             converging,diverging = Flm_n.diagnose_convergence(verbose=self.verbose)
@@ -771,7 +771,7 @@ class WaveletFnlm(EvaluateFnlm, Interpolator3d):
                 print("Maximum N_gens until convergence: {}".format(ngensLeft.max()))
             else:
                 print("All blocks have converging Taylor series.")
-        return Flm_n.energy_fx2()
+        return Flm_n.norm_fx2()
 
     def refine_lm(self, lm, max_depth=None):
         t0 = time.time()
@@ -803,14 +803,14 @@ class WaveletFnlm(EvaluateFnlm, Interpolator3d):
     def check_extrap_accuracy(self, lm, verbose=True):
         return self.fI_lm[lm].check_extrap_accuracy(verbose=verbose)
 
-    def update_atol(self, atol_fnlm=None, atol_energy=None):
+    def update_atol(self, atol_fnlm=None, atol_f2norm=None):
         if atol_fnlm is not None:
             self.atol_fnlm = atol_fnlm
             for lm in self.fI_lm.keys():
                 self.fI_lm[lm].atol_fnlm = atol_fnlm
-        if atol_energy is not None:
-            self.atol_energy = atol_energy
+        if atol_f2norm is not None:
+            self.atol_f2norm = atol_f2norm
             for lm in self.fI_lm.keys():
-                self.fI_lm[lm].atol_energy = atol_energy
+                self.fI_lm[lm].atol_f2norm = atol_f2norm
 
 #

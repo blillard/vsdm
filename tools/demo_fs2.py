@@ -208,10 +208,10 @@ def main(l_min, l_max, power2, modelname='box_4_7_10'):
     QMAX = 10*qBohr # Global value for q0=qMax for wavelets
     basisQ = dict(u0=QMAX, type='wavelet', uMax=QMAX)
     """
-    Note: here the precision goal 'atol_energy' is set based on an estimate of
+    Note: here the precision goal 'atol_f2norm' is set based on an estimate of
         the total L2 norm, approximately 3.5e-4 for the nz=2 excited state.
     """
-    use_alt_model = True
+    use_alt_model = False
     if use_alt_model:
         fs2_model = fs2_model4_alt
         csvname = 'out/demo_fs2_alt.csv'
@@ -231,7 +231,7 @@ def main(l_min, l_max, power2, modelname='box_4_7_10'):
     wave_extp = vsdm.WaveletFnlm(basisQ, fs2_model, integ_params,
                                  power2_lm={}, p_order=3,
                                  epsilon=epsilon,
-                                 atol_energy=atol_E,
+                                 atol_f2norm=atol_E,
                                  atol_fnlm=atol_f,
                                  max_depth=5,
                                  refine_at_init=False,
@@ -269,9 +269,6 @@ if len(sys.argv)==3:
     main(0, int(sys.argv[1]), int(sys.argv[2]))
 elif len(sys.argv)==4:
     main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
-elif len(sys.argv)==5:
-    main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]),
-         modelname=sys.argv[4])
 elif len(sys.argv)==5:
     main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]),
          modelname=sys.argv[4])
