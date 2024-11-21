@@ -210,8 +210,19 @@ class McalK():
         return self.mu_garray(wG.G_array, lmod_g=wG.lmod)
 
     def mu_R(self, wG):
-        """Total rate sum_ell R[ell]/g_k0 for a WignerG instance wG."""
-        return self.mu_garray(wG.G_array, lmod_g=wG.lmod).sum(axis=1)
+        """Total rate sum_ell R[ell]/g_k0 for a WignerG instance wG.
+
+        This is the main rate calculation, and it is designed to be fast.
+        If the values of lmod and ellMax do not match between G and K,
+            this method uses the slower mu_garray() method, summing over l.
+        """
+        lmod_g = wG.lmod
+        ellMax_g = wG.ellMax
+        gvec_array = wG.G_array
+        if lmod_g != self.lmod or ellMax_g != self.ellMax:
+            return self.mu_garray(gvec_array, lmod_g=wG.lmod).sum(axis=1)
+        # assuming G and K have the same shape in (l,m,m'):
+        return gvec_array @ self.vecK
 
 class RateCalc(McalK):
     """Evaluates McalK and rate from <nlm|gX> and <nlm|fgs2>.
