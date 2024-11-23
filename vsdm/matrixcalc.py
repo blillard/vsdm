@@ -111,7 +111,6 @@ class McalI():
             self.evaluated = True
         self.t_eval = time.time() - t0
 
-
     @staticmethod
     def _mergeBasisVQ(V, Q):
         Vbasis = V.basis
@@ -136,7 +135,6 @@ class McalI():
         if self.use_gvar:
             self.mcalI_gvar.resize(larger_shape)
         self.mI_shape = larger_shape
-
 
     def getI_lvq(self, lnvq, integ_params):
         """Calculates I^(ell)_{vq} integrals for this (V,Q) basis.
@@ -211,7 +209,6 @@ class McalI():
         if verbose:
             print(I_lnvq.summary())
         return I_lnvq
-
 
     def getI_lvq_analytic(self, lnvq, verbose=False):
         """Analytic calculation for I(ell) matrix coefficients.
@@ -300,7 +297,6 @@ class McalI():
             print("\t Ilvq = ", Ilvq)
         return Ilvq
 
-
     def updateIlvq(self, lnvq, integ_params, analytic=False):
         """Calculates Ilvq(l,nv,nq) using numeric or analytic method.
 
@@ -354,7 +350,6 @@ class McalI():
                     # incompatible basis functions
         self.evaluated = True
 
-
     def writeMcalI(self, hdf5file, modelName, alt_type=None):
         """Saves Ilvq array to hdf5 under name 'modelName'.
 
@@ -384,7 +379,6 @@ class McalI():
                                      data=Ilvq_sdev, attrs=dset_attrs)
         return dname_mean, dname_sdev
 
-
     def write_update(self, hdf5file, modelName, d_pair, newdata,
                      alt_type=None):
         """Adds mcalI[l,nv,nq] values to existing hdf5 datasets.
@@ -401,7 +395,6 @@ class McalI():
             typeName = self.f_type
         folio = Portfolio(hdf5file, extra_types=[typeName])
         folio.update_gvar(typeName, modelName, d_pair, newdata=newdata)
-
 
     def importMcalI(self, hdf5file, modelName, d_pair=[], alt_type=None):
         """Imports mcalI from hdf5, adds to f_nlm.
