@@ -63,7 +63,7 @@ def _v_n_int(n, x):
     if n==0:
         return 0.5*math.log(x) + x + 0.25*x**2
     elif n==1:
-        return 0.5/x + math.log(x) + 0.5*x
+        return -0.5/x + math.log(x) + 0.5*x
     elif n==2:
         return -0.25/x**2 - 1/x + 0.5*math.log(x)
     else:
