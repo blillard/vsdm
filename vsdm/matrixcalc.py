@@ -35,7 +35,11 @@ class McalI():
         modelDMSM: dict describing DM and SM particle physics and DeltaE
             DeltaE: energy transfer (for kinematics)
             mX: DM particle mass
-            fdm_n: DM-SM scattering form factor index (e.g. n=0, n=2)
+            fdm: DM-SM scattering form factor index (e.g. n=0, n=2)
+                Option 1: fdm = n is a single number. FDM2 has the form:
+                    F_DM**2(q,v) = (qBohr/q)**(2*n)
+                Option 2: fdm = (a,b) is a tuple. FDM2 has the form:
+                    F_DM**2(q,v) = (q/qBohr)**a *  (v/c)**b
             mSM: SM target particle mass (e.g. electron, mElec)
         mI_shape: (optional) determines the initial size of the I_lnvq array
             mI_shape = (ellMax+1, nvMax+1, nqMax+1) = mcalI.shape
@@ -67,7 +71,13 @@ class McalI():
         # if center_Z2, then all odd ell are skipped in update_mcalI()
         # DM and SM particle model parameters:
         mX = modelDMSM['mX'] # DM mass
-        fdm_n = modelDMSM['fdm_n'] # DM-SM scattering form factor index
+        if 'fdm' in modelDMSM.keys():
+            fdm = modelDMSM['fdm'] # DM-SM scattering form factor index
+            # can be of type fdm = n, for FDM ~ q**(-n),
+            # or of type fdm = (a, b), for FDM**2 ~ q**a * v**b
+        elif 'fdm_n' in modelDMSM.keys(): # v0.3 version of this label
+            fdm = modelDMSM['fdm_n'] # DM-SM scattering form factor index
+            self.modelDMSM['fdm'] = fdm # this is the v0.4 format
         mSM = modelDMSM['mSM'] # SM particle mass (mElec)
         DeltaE = modelDMSM['DeltaE'] # DM -> SM energy transfer
         muSM = mX*mSM/(mX + mSM) # reduced mass
@@ -143,7 +153,13 @@ class McalI():
         q0 = self.q0
         # DM and SM particle model parameters
         mX = self.modelDMSM['mX'] # DM mass
-        fdm_n = self.modelDMSM['fdm_n'] # DM-SM scattering form factor index
+        fdm = self.modelDMSM['fdm'] # DM-SM scattering form factor index
+        if type(fdm) is int or type(fdm) is float:
+            n = fdm
+            a = -2*n
+            b = 0
+        else:
+            (a, b) = fdm
         mSM = self.modelDMSM['mSM'] # SM particle mass (mElec)
         DeltaE = self.modelDMSM['DeltaE'] # DM -> SM energy transfer
         nitn_init = integ_params['nitn_init'] # reduced mass
@@ -185,7 +201,7 @@ class McalI():
             if v < vMinq:
                 return 0
             else:
-                partQ = self.Q.r_n(nq, q, l=ell) * fdm2_n(q, fdm_n)
+                partQ = self.Q.r_n(nq, q, l=ell) * fdm2_ab(a, b, q, v)
                 partV = self.V.r_n(nv, v, l=ell) * plm_norm(ell,0,vMinq/v)
                 return self.kI * q*v/(q0*v0)**2 * partQ * partV
             # Integrand units cancel against units from QV integration area
@@ -212,7 +228,13 @@ class McalI():
         v0 = self.v0
         q0 = self.q0
         mX = self.modelDMSM['mX'] # DM mass
-        fdm_n = self.modelDMSM['fdm_n'] # DM-SM scattering form factor index
+        fdm = self.modelDMSM['fdm'] # DM-SM scattering form factor index
+        if type(fdm) is float or type(fdm) is int:
+            n = fdm
+            a = -2*n
+            b = 0
+        else:
+            (a, b) = fdm
         mSM = self.modelDMSM['mSM'] # SM particle mass (mElec)
         DeltaE = self.modelDMSM['DeltaE'] # DM -> SM energy transfer
         muSM = self.modelDMSM['muSM'] # reduced mass
@@ -233,7 +255,7 @@ class McalI():
             # returns the error type, so one can try again with getI_lvq()
             return AssertionError
         commonFactor = ((q0/v0)**3/(2*mX*muSM**2) * (2*DeltaE/(q0*v0))**2
-                        *(q0_fdm/qStar)**(2*fdm_n))
+                        * (qStar/q0_fdm)**a * (vStar/v0_fdm)**b
         n_regions = [1,1]
         if v_type=='tophat':
             [v1, v2] = V._u_baseOfSupport(nv, getMidpoint=False)
@@ -262,17 +284,17 @@ class McalI():
         # There is always an A_v A_q term:
         v12_star = [v1/vStar, v2/vStar]
         q12_star = [q1/qStar, q2/qStar]
-        term_AA = A_v*A_q * mI_star(ell, fdm_n, v12_star, q12_star)
+        term_AA = A_v*A_q * mI_star(ell, fdm, v12_star, q12_star)
         # There are only B-type contributions if V or Q uses wavelets
         term_AB, term_BA, term_BB = 0, 0, 0
         if n_regions[0]==2:
             v23_star = [v2/vStar, v3/vStar]
-            term_BA = B_v*A_q * mI_star(ell, fdm_n, v23_star, q12_star)
+            term_BA = B_v*A_q * mI_star(ell, fdm, v23_star, q12_star)
         if n_regions[1]==2:
             q23_star = [q2/qStar, q3/qStar]
-            term_AB = A_v*B_q * mI_star(ell, fdm_n, v12_star, q23_star)
+            term_AB = A_v*B_q * mI_star(ell, fdm, v12_star, q23_star)
         if n_regions==[2,2]:
-            term_BB = B_v*B_q * mI_star(ell, fdm_n, v23_star, q23_star)
+            term_BB = B_v*B_q * mI_star(ell, fdm, v23_star, q23_star)
         Ilvq = commonFactor * (term_AA + term_BA + term_AB + term_BB)
         if verbose:
             print("\t Ilvq = ", Ilvq)
@@ -337,7 +359,7 @@ class McalI():
         """Saves Ilvq array to hdf5 under name 'modelName'.
 
         Recommend using DeltaE and DM parameters as the model label:
-            e.g. modelName = (DeltaE)/(mX, fdm_n)
+            e.g. modelName = (DeltaE, mX, fdm)
         """
         if alt_type is not None:
             typeName = alt_type
