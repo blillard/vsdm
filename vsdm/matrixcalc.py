@@ -255,7 +255,7 @@ class McalI():
             # returns the error type, so one can try again with getI_lvq()
             return AssertionError
         commonFactor = ((q0/v0)**3/(2*mX*muSM**2) * (2*DeltaE/(q0*v0))**2
-                        * (qStar/q0_fdm)**a * (vStar/v0_fdm)**b
+                        * (qStar/q0_fdm)**a * (vStar/v0_fdm)**b)
         n_regions = [1,1]
         if v_type=='tophat':
             [v1, v2] = V._u_baseOfSupport(nv, getMidpoint=False)
