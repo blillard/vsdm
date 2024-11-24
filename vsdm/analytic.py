@@ -220,7 +220,7 @@ def mI_star(ell, fdm, v12_star, q12_star):
     if include_R2 is False:
         q_A = np.max([q1, tilq_m])
         q_B = np.min([q2, tilq_p])
-        return _u_l_ab_vq_int(ell, fdm, v2, [q_A, q_B])
+        return _u_l_ab_vq_int(ell, a, b, v2, [q_A, q_B])
     # Else: at least part of the integration volume is set by v1 < v.
     q_a = np.max([q1, tilq_m])
     q_b = np.max([q1, q_m]) # q_m > tilq_m iff v2 > v1
