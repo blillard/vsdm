@@ -134,6 +134,7 @@ class McalK():
     def __init__(self, ellMax, lmod=None, use_gvar=False):
         self.ellMax = ellMax
         self.lmod = lmod
+        self.use_gvar = use_gvar
         lenK = Gindex(ellMax,ellMax,ellMax) + 1
         if use_gvar:
             self.vecK = np.zeros(lenK, dtype='object')
