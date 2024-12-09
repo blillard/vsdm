@@ -264,74 +264,10 @@ class RateCalc(McalK):
         self.nvMax = np.min([gV.nMax, mI.mI_shape[1]-1])
         self.nqMax = np.min([fsQ.nMax, mI.mI_shape[2]-1])
         #module for rotations:
-        McalK.__init__(self, ellMax_K, lmod=None, use_gvar=False)
+        McalK.__init__(self, ellMax_K, lmod=lmod, use_gvar=use_gvar)
         t0 = time.time()
         self.getK(gV, fsQ, mI, sparse=sparse) # calculate K...
         self.t_eval = time.time() - t0
 
-    # def tr_K_l(self):
-    #     """List of Tr(K[l]) values (for rate without rotation)."""
-    #     trKl = []
-    #     for ell in range(0, self.ellMax, self.lmod):
-    #         Klmm = 0.
-    #         for m in range(-ell, ell+1):
-    #             Klmm += self.vecK[Gindex(ell, m, m, lmod=self.lmod)]
-    #         trKl += [Klmm]
-    #     return np.array(trKl)
-    #
-    # def mu_garray(self, gvec_list, lmod_g=None):
-    #     """Partial rate mu[ell] = R[ell]/g_k0 for a list of WignerG gvec vectors.
-    #
-    #     Arguments:
-    #     * gvec_array: a list of WignerG 'gvec' to evaluate
-    #         gvec: a 1d WignerG vector of type WignerG.G(R) for rotation 'R'.
-    #     * lmod_g: if lmod for gvec does not match self.lmod, set lmod_g here.
-    #
-    #     Output:
-    #     * list of mu[ell] = R[ell]/g_k0 vectors for ell = 0,...ellMax
-    #         mu_l is the same axis=0 length as the 2d gvec_array
-    #     """
-    #     if lmod_g is None: # assume that indexing of gvec matches K
-    #         lmod_g = self.lmod
-    #     if len(np.shape(gvec_list))==1:
-    #         gvec_array = np.array([gvec_list])
-    #     else:
-    #         gvec_array = np.array(gvec_list)
-    #     n_rotations, len_G = np.shape(gvec_array)
-    #     # ensure that gvec includes all ell up to ellMax:
-    #     ellMax = self.ellMax
-    #     if len_G < Gindex(ellMax, ellMax, ellMax, lmod=lmod_g):
-    #         ellMax = 0
-    #         for l in range(lmod_g, self.ellMax+1, lmod_g):
-    #             if Gindex(l, l, l, lmod=lmod_g) <= len_G:
-    #                 ellMax = l
-    #     # for partial rate R(l), split G and K into sections of constant ell:
-    #     lmod = 1
-    #     if lmod_g==2 or self.lmod==2:
-    #         lmod = 2
-    #     # perform the calculation using only the local 'lmod'
-    #     ells = [l for l in range(0, ellMax+1, lmod)]
-    #     # dict version:
-    #     gR_l = {}
-    #     k_l = {}
-    #     for l in ells:
-    #         start_k = Gindex(l, -l, -l, lmod=self.lmod)
-    #         end_k = Gindex(l, l, l, lmod=self.lmod)
-    #         k_l[l] = self.vecK[start_k:end_k+1]
-    #         start_g = Gindex(l, -l, -l, lmod=lmod_g)
-    #         end_g = Gindex(l, l, l, lmod=lmod_g)
-    #         gR_l[l] = gvec_array[:, start_g:end_g+1]
-    #     mu_l = np.zeros((n_rotations, len(ells)))
-    #     for ix_l,l in enumerate(ells):
-    #         mu_l[:, ix_l] = gR_l[l] @ k_l[l]
-    #     return mu_l
-    #
-    # def mu_R_l(self, wG):
-    #     """Partial rate R[ell]/g_k0 for a WignerG instance wG."""
-    #     return self.mu_garray(wG.G_array, lmod_g=wG.lmod)
-    #
-    # def mu_R(self, wG):
-    #     """Total rate sum_ell R[ell]/g_k0 for a WignerG instance wG."""
-    #     return self.mu_garray(wG.G_array, lmod_g=wG.lmod).sum(axis=1)
 
 #
