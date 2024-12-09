@@ -265,7 +265,7 @@ class RateCalc(McalK):
         self.nvMax = np.min([gV.nMax, mI.mI_shape[1]-1])
         self.nqMax = np.min([fsQ.nMax, mI.mI_shape[2]-1])
         #module for rotations:
-        McalK.__init__(self, ellMax_K, lmod=None, use_gvar=False)
+        McalK.__init__(self, ellMax_K, lmod=lmod, use_gvar=use_gvar)
         t0 = time.time()
         self.getK(gV, fsQ, mI, sparse=sparse) # calculate K...
         self.t_eval = time.time() - t0
