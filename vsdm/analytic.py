@@ -53,6 +53,10 @@ def _b_nk_int(n, k, x):
     return 0.5*sum
 
 def _c_alpha_int(alpha, x):
+    if alpha%1 != 0: # float valued
+        return x**(alpha)/alpha**2 * (0.5 - spf.hyp2f1(1, alpha, 1 + alpha, -x))
+    else: # integer-valued
+        alpha = int(alpha)
     if alpha==-2:
         return -0.5*math.log( (1+x)/x ) + 0.5/x - 0.125/x**2
     elif alpha==-1:
@@ -64,8 +68,6 @@ def _c_alpha_int(alpha, x):
         return 0.5*x - math.log(1 + x)
     elif alpha==2:
         return 0.125*x**2 - 0.5*x + 0.5*math.log(1 + x)
-    elif alpha%1 != 0: # float valued
-        return x**(alpha)/alpha**2 * (0.5 - spf.hyp2f1(1, alpha, 1 + alpha, -x))
     elif alpha > 1: # other positive integers
         sum = (-1)**alpha * math.log(1+x) / alpha + (1+x)**alpha / (2*alpha**2)
         for j in range(1, alpha):
