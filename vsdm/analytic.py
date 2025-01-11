@@ -245,11 +245,6 @@ def mI_star(ell, fdm, v12_star, q12_star):
     return mI_0 + mI_1 + mI_2
 #
 
-"""Second set of analytic form factor functions.
-
-    For F_DM**2(q, v) = (q/q0)**a * (v/c)**b
-"""
-
 
 
 

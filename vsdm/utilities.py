@@ -154,7 +154,6 @@ def plm_norm(ell, m, x):
     if x2==1:
         # Evaluate now, to avoid 1/sqrt(1-x**2) division errors.
         return int(m==0) * (x)**(ell%2)
-    sqrt_1_x2 = (1-x2)**0.5
     if m==0:
         # Upward recursion along m=0 to (l,0). Bonnet:
         if ell==1:
