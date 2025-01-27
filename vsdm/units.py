@@ -18,7 +18,7 @@ Default choice: VUNIT_c = 1, EUNIT_eV = 1, _Q0_FDM_QBOHR=1.
 Defining 1 year = 365.0 days = 3.1536e7 s, for 'kg*year' exposure.
 """
 
-__all__ = ["VUNIT_c", "EUNIT_eV", "g_c", "km_s", "qBohr", "q0_fdm",
+__all__ = ["VUNIT_c", "EUNIT_eV", "g_c", "km_s", "qBohr", "q0_fdm", "v0_fdm",
            "eV", "keV", "MeV", "mElec", "alphaE", "SECONDS_PER_YEAR"]
 
 """
@@ -43,6 +43,7 @@ mElec = 0.511*MeV / g_c**2 # electron mass, units of [energy] / [velocity]**2
 alphaE = 1/137.036 # fine structure constant
 qBohr = mElec*alphaE * g_c # in units of [energy]/[velocity]
 q0_fdm = _Q0_FDM_QBOHR*qBohr # the reference momentum for F_DM form factor
+v0_fdm = g_c # the reference velocty (c) for F_DM form factor
 
 
 #

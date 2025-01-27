@@ -28,7 +28,8 @@ from .wigner import Gindex
 from .utilities import *
 
 
-def _vecK(gV, fsQ, mI, ellMax=None, lmod=1, use_gvar=False, sparse=False):
+def _vecK(gV, fsQ, mI, ellMax=None, lmod=1,
+          use_gvar=False, sparse=False, remake_Farray=False):
     """Combines <V|I|Q>, <gX|V>, and <Q|fgs2> into vector K(ell,mv,mq).
 
     Arguments:
@@ -77,9 +78,10 @@ def _vecK(gV, fsQ, mI, ellMax=None, lmod=1, use_gvar=False, sparse=False):
         return vecK
     ### ELSE: (not sparse)
     # this _makeFarray does use_gvar only if gV.use_gvar:
-    fLMn_gV = gV._makeFarray(use_gvar=use_gvar)
-    # this _makeFarray does use_gvar only if fsQ.use_gvar
-    fLMn_fsQ = fsQ._makeFarray(use_gvar=use_gvar)
+    if gV.f_lm_n is None or remake_Farray:
+        gV._makeFarray(use_gvar=use_gvar)
+    if fsQ.f_lm_n is None or remake_Farray:
+        fsQ._makeFarray(use_gvar=use_gvar)
     # trim the widths of the arrays to the minimum (ellMax, nvMax, nqMax)
     fLMn_gV = gV.f_lm_n[:, 0:nvMax+1]
     fLMn_fsQ = fsQ.f_lm_n[:, 0:nqMax+1]
@@ -126,26 +128,54 @@ class McalK():
     Input:
         ellMax,lmod: defines the size and indexing of the vector form of K^(l)
 
+    Outputs:
+        vecK: the dimensionless, basis-dependent 'mcalK' vector
+        PartialRate: the dimensionful, basis-independent partial rate matrix:
+            PartialRate = v0**2 / q0 * vecK
+        Nevents(): the total number of expected events, given the exposure
+            factors exp_kgyr, rhoX_GeVcm3, sigma0_cm2.
+        mu_R(wG): mu = Nevents / k0, where k0 = g_k0() is the exposure factor
+            returns a list of mu(R), for rotations R from WignerG object wG
+        mu_R_l(wG): separates mu(R) into the contribution from each harmonic
+            'l' mode, e.g. mu = mu(l=0) + mu(l=1) + mu(l=2) +...+ mu(l=ellMax)
+            for an example with lmod = 1.
+
     order of (l,mv,mq) entries in K vector:
         if lmod=1: (0,0,0), (1,-1,-1), (1,-1,0), ..., (1,1,1), (2,-2,-2), ...
         if lmod=2: (0,0,0), (2,-2,-2), (2,-2,-1), ..., (2,2,2), (4,-4,-4), ...
     skips l unless l%lmod != 0, but includes all m = -l, -l+1, ..., l.
     """
-    def __init__(self, ellMax, lmod=None, use_gvar=False):
+    def __init__(self, ellMax, lmod=1, use_gvar=False):
         self.ellMax = ellMax
         self.lmod = lmod
+        self.use_gvar = use_gvar
         lenK = Gindex(ellMax,ellMax,ellMax) + 1
         if use_gvar:
             self.vecK = np.zeros(lenK, dtype='object')
+            self.PartialRate = np.zeros(lenK, dtype='object')
         else:
             self.vecK = np.zeros(lenK)
+            self.PartialRate = np.zeros(lenK)
+        # Basis-dependent normalization factors:
+        self.v0 = None
+        self.q0 = None
 
     def getK(self, gV, fsQ, mI, ellMax=None, sparse=False):
-        # can change ellMax but not lmod:
+        """Calculates vecK and PartialRate from gV, fsQ, and mI.
+
+        gV: an Fnlm velocity distribution
+        fsQ: an Fnlm momentum distribution
+        mI: an McalI object for a specific DM particle model (mX, FDM2)
+        ellMax: optional truncation on the harmonic expansion
+            default value is ellMax = self.ellMax
+        """
+        self.v0 = gV.u0
+        self.q0 = fsQ.u0
         if ellMax is None:
             ellMax = self.ellMax
         self.vecK = _vecK(gV, fsQ, mI, ellMax=ellMax, lmod=self.lmod,
                           use_gvar=self.use_gvar, sparse=sparse)
+        self.PartialRate = self.v0**2 / self.q0 * self.vecK
         return self.vecK
 
     def tr_K_l(self):
@@ -210,7 +240,7 @@ class McalK():
         return self.mu_garray(wG.G_array, lmod_g=wG.lmod)
 
     def mu_R(self, wG):
-        """Total rate sum_ell R[ell]/g_k0 for a WignerG instance wG.
+        """Total rate, sum_ell R[ell]/g_k0 for a WignerG instance wG.
 
         This is the main rate calculation, and it is designed to be fast.
         If the values of lmod and ellMax do not match between G and K,
@@ -224,12 +254,23 @@ class McalK():
         # assuming G and K have the same shape in (l,m,m'):
         return gvec_array @ self.vecK
 
+    def Nevents(self, wG, exp_kgyr=1., mCell_g=1.,
+                sigma0_cm2=1e-40, rhoX_GeVcm3=0.4):
+        """Total rate: as expected number of events given some exposure time.
+
+        Uses g_k0() from utilities.py, with:
+        exp_kgyr: exposure time*mass in units of kg*year
+        mCell_g: molar mass of the fsQ unit cell [in grams]
+        sigma0_cm2: cross section factor normalizing the FDM2(v,q) form factor
+        rhoX_GeVcm3: local DM density, in GeV (mass) per cubic centimeter
+        """
+        k0 = g_k0(exp_kgyr=exp_kgyr, mCell_g=mCell_g, sigma0_cm2=sigma0_cm2,
+                  rhoX_GeVcm3=rhoX_GeVcm3, v0=self.v0, q0=self.q0)
+        return k0 * self.mu_R(wG)
+
+
 class RateCalc(McalK):
     """Evaluates McalK and rate from <nlm|gX> and <nlm|fgs2>.
-
-    This is the dimensionless version of the rate, mu_R = R/g_k0,
-        where g_k0 contains the dependence on the exposure mass*time,
-        cross section normalization, local DM mass density, v0 and q0.
 
     Input:
         gV, fsQ: Fnlm instances in V and Q spaces.
@@ -264,7 +305,7 @@ class RateCalc(McalK):
         self.nvMax = np.min([gV.nMax, mI.mI_shape[1]-1])
         self.nqMax = np.min([fsQ.nMax, mI.mI_shape[2]-1])
         #module for rotations:
-        McalK.__init__(self, ellMax_K, lmod=lmod, use_gvar=use_gvar)
+        McalK.__init__(self, ellMax_K, lmod=lmod_K, use_gvar=use_gvar)
         t0 = time.time()
         self.getK(gV, fsQ, mI, sparse=sparse) # calculate K...
         self.t_eval = time.time() - t0

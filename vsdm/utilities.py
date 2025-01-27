@@ -3,6 +3,8 @@
 Physics functions:
     fdm2_n: DM-SM particle scattering form factor, normalized to F(q=q0) = 1.
         Value of q0 = q0_fdm is defined in units.py in units of qBohr.
+    fdm2_ab: DM-SM particle scattering form factor, FDM2(q,v) ~ q**a * v**b,
+        normalized to F(q=q0, v=c) = 1.
     g_k0: scattering event rate scaling factor with target exposure
 These functions require .units, e.g. for q0 and g_k0().
 
@@ -28,7 +30,7 @@ Interpolation:
         Contains a dictionary of 1d Interpolator objects, labeled by (l,m).
 """
 
-__all__ = ['g_k0', 'fdm2_n', 'mathsinc', 'dV_sph',
+__all__ = ['g_k0', 'fdm2_n', 'fdm2_ab', 'mathsinc', 'dV_sph',
            'plm_real', 'plm_norm', 'ylm_real', 'ylm_cx', 'ylm_scipy',
            'makeNLMlist',
            'splitGVARarray', 'joinGVARarray', '_LM_to_x', '_x_to_LM',
@@ -56,7 +58,7 @@ def g_k0(exp_kgyr=1., mCell_g=1., sigma0_cm2=1e-40,
         * (rhoX_GeVcm3/0.4) * (v0/(220.*km_s))**2 * (qBohr/q0) )
 
 ### Physics function: squared form factor for DM-SM particle scattering
-def fdm2_n(q, n):
+def fdm2_n(n, q):
     """DM-SM scattering form factor, F_DM(q) = (q0/q)**n for integer n."""
     # F = (q0/q)^n. Normalized to F(q0)=1.
     #  Default: q0 = alpha*mE.
@@ -64,6 +66,15 @@ def fdm2_n(q, n):
     if n==0:
         return 1
     return (q0_fdm/q)**(2*n)
+
+def fdm2_ab(a, b, q, v):
+    """DM-SM scattering form factor, F_DM(q) = (q0/q)**a * v**b."""
+    # F = (q0/q)^n. Normalized to F(q0)=1.
+    #  Default: q0 = alpha*mE.
+    # Function returns F^2, e.g. F^2 = 1 or F^2 = 1/q^4.
+    if n==0:
+        return 1
+    return (q/q0_fdm)**a * (v/v0_fdm)**b
 
 """
     Mathematics functions: dV_sph integration Jacobian
@@ -143,7 +154,6 @@ def plm_norm(ell, m, x):
     if x2==1:
         # Evaluate now, to avoid 1/sqrt(1-x**2) division errors.
         return int(m==0) * (x)**(ell%2)
-    sqrt_1_x2 = (1-x2)**0.5
     if m==0:
         # Upward recursion along m=0 to (l,0). Bonnet:
         if ell==1:
