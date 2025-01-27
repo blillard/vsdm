@@ -311,5 +311,4 @@ class RateCalc(McalK):
         self.t_eval = time.time() - t0
 
 
-
 #
