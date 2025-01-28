@@ -17,6 +17,8 @@ Version 0.3 of this code introduces an adaptive integration method for projectin
 
 The spherical harmonic functions are also improved in this version. The new normalized associated Legendre function in utilities.py uses just-in-time compilation and an iterative numerical method to gain a factor of 20-25 in speed compared to v0.1, while permitting precise calculations at much larger values of (l, m). Accuracy has been verified out to l=1,000,000.
 
+Version 0.4 adds support for velocity-dependent cross sections, of the form $\sigma(\vec q, \vec v) = \sigma_0 (q/q_r)^a (v / v_r)^b$ for arbitrary powers $a$ and $b$. The reference momentum $q_r$ and velocity $v_r$ are defined in units.py as q0_fdm and v0_fdm, respectively, with default values $q_r = \alpha m_e c$ and $v_r = c$.  
+
 A few explanatory notebooks are included in the 'tools' directory:
 - **Calculating Coefficients:** demonstrates how to calculate the wavelet-harmonic coefficients using the Fnlm and EvaluateFnlm classes, and how to import saved coefficients from a csv file. 
 - **Rate Calculation:** provides a few examples of how to perform the rate calculation for arbitrary detector orientations with respect to the dark matter velocity distribution. 
