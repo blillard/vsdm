@@ -83,12 +83,14 @@ class Basis1d():
             - new type: 'hybrid(lambda0)' (tophat/wavelet)
             first n=0,1,...,2**lambda0-1 are equal-width bins
             subsequent n=2**lambda0,2**lambda0+1, ... are all wavelets
-        * u0: sets normalization of |nlm>
-            is the scale factor for infinite-domain radial functions
+        * uMax: sets limit of integration volume for u.
+
         conditional/optional items:
+        * u0: sets normalization of |nlm> functions
+            is the scale factor for infinite-domain radial functions
+            optional: if not provided, then u0 = uMax by default.
         * uiList: mandatory for 'tophat', the list of u_i to be used
-        * uMax: mandatory for 'laguerre', setting the limit of integration on u.
-            For 'wavelet' and 'tophat', can set uMax=None.
+            sets uMax = uiList[-1]
         * dim = 1,3: specifies the dimensionality of the radial functions,
             for Haar and tophat basis functions. dim=3 is the default (e.g. for
             spherical Haar wavelets), dim=1 for standard Haar wavelets.
@@ -98,15 +100,14 @@ class Basis1d():
             dimensionless x = u/u0. Index 'l' only relevant for 'laguerre' basis
         getFn(f, n): evaluates 1d integral <f|r_n> for radial function r_n.
     """
-    # For now, not including spherical bessel functions.
-    # For j_ell, need to initialize list of zeros, alpha_{l,n}
     def __init__(self, basis):
         """Makes self.basis, self.u0, """
+        self.runBasisCheck(basis)
+        if 'dim' in basis:
+            self.dim = basis['dim']
+        else:
+            self.dim = 3 #default assumption: 3d basis functions
         self.basis = basis
-        update_dict = self.runBasisCheck(basis)
-        for lbl,entry in update_dict.items():
-            self.basis[lbl] = entry
-        self.uMax = self.basis['uMax']
         self.xMax = self.uMax/self.u0
 
     def runBasisCheck(self, basis):
@@ -117,28 +118,34 @@ class Basis1d():
         Returns: dict 'updates' of entries in self.basis that should be updated,
                 e.g. to define 'uMax' from 'u0' if appropriate
         """
-        updates = {}
-        assert('u0' in basis), "Missing mandatory parameter: 'u0'."
-        self.u0 = basis['u0']
         assert('type' in basis), "Missing mandatory parameter: 'type'."
-        uType = basis['type']
-        if uType=="wavelet":
-            assert('uMax' in basis), "Missing mandatory parameter: 'uMax'."
-        elif uType=='tophat':
+        if basis['type']=="wavelet":
+            assert('uMax' in basis or 'u0' in basis), "Missing mandatory parameter: 'uMax' or 'u0'."
+            if 'u0' not in basis:
+                self.u0 = basis['uMax']
+                self.uMax = basis['uMax']
+            elif 'uMax' not in basis:
+                self.u0 = basis['u0']
+                self.uMax = basis['u0']
+            else:
+                self.u0 = basis['u0']
+                self.uMax = basis['uMax']
+        elif basis['type']=='tophat':
             assert('uiList' in basis), "tophat: need uiList."
             #uiList should be ordered and nonnegative
+            assert(all(basis['uiList'][i] < basis['uiList'][i+1]
+                       for i in range(len(basis['uiList']) - 1))), "tophat: uiList must be ordered"
+            assert(basis['uiList'][0] >= 0), "tophat: all u_i must be nonnegative"
+            self.uMax = basis['uiList'][-1]
+            self.u0 = self.uMax
             self.uiList = basis['uiList']
             self.xiList = [u/self.u0 for u in self.uiList] #dimensionless x
-            assert(all(self.uiList[i] < self.uiList[i+1]
-                       for i in range(len(self.uiList) - 1))), "tophat: uiList must be ordered"
-            assert(self.uiList[0] >= 0), "tophat: all u_i must be nonnegative"
-            if 'uMax' not in basis:
-                updates['uMax'] = basis['uiList'][-1]
-            else:
-                assert(basis['uMax'] == basis['uiList'][-1]), "tophat: require uMax=uiList[-1]."
-        elif uType=="laguerre":
+        elif basis['type']=="laguerre":
             assert('uMax' in basis), "Missing mandatory parameter: 'uMax'."
-        return updates
+            assert('u0' in basis), "Missing mandatory parameter: 'u0'."
+            self.u0 = basis['u0']
+            self.uMax = basis['uMax']
+        # at end, self.uMax and self.u0 are defined in all cases.
 
     def _r_n_x(self, n, x, l=0):
         """Dimensionless radial function r_n^(l)(x), x=u/u0.
@@ -296,10 +303,6 @@ class Basis(Basis1d):
     """
     def __init__(self, basis):
         Basis1d.__init__(self, basis)
-        if 'dim' in self.basis:
-            self.dim = self.basis['dim']
-        else:
-            self.dim = 3 #default assumption: 3d basis functions
 
     def _phi_x(self, nlm, xvec):
         """Dimensionless basis function |nlm> = r_n(x)*Y_lm(theta,phi).
