@@ -703,7 +703,7 @@ class WaveletFnlm(EvaluateFnlm, Interpolator3d):
     def __init__(self, basis, fSph, integ_params, power2_lm={}, p_order=3,
                  max_depth=5, refine_at_init=False, import_fnlm=None,
                  epsilon=1e-6, atol_f2norm=None, atol_fnlm=None,
-                 f_type=None, csvsave_name=None, use_gvar=True):
+                 f_type=None, csvsave_name=None, use_gvar=False):
         self.p_order = p_order
         self.epsilon = epsilon
         self.atol_f2norm = atol_f2norm
