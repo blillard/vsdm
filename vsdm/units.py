@@ -19,7 +19,8 @@ Defining 1 year = 365.0 days = 3.1536e7 s, for 'kg*year' exposure.
 """
 
 __all__ = ["VUNIT_c", "EUNIT_eV", "g_c", "km_s", "qBohr", "q0_fdm", "v0_fdm",
-           "eV", "keV", "MeV", "mElec", "alphaE", "SECONDS_PER_YEAR"]
+           "eV", "keV", "MeV", "GeV", "TeV", "mElec", "alphaE", 
+           "SECONDS_PER_YEAR"]
 
 """
     Unit choices for velocity, energy, momentum:
@@ -39,6 +40,8 @@ km_s = (2.99792e5)**(-1) * g_c # 1 km/s in units of [velocity]
 eV = 1./EUNIT_eV # 1 eV in units of [energy]
 keV = 1e3*eV
 MeV = 1e6*eV
+GeV = 1e9*eV
+TeV = 1e12*eV
 mElec = 0.511*MeV / g_c**2 # electron mass, units of [energy] / [velocity]**2
 alphaE = 1/137.036 # fine structure constant
 qBohr = mElec*alphaE * g_c # in units of [energy]/[velocity]
