@@ -1,4 +1,4 @@
-Gnli"""Wavelet-harmonic projection of a four-gaussian gX model.
+"""Wavelet-harmonic projection of a four-gaussian gX model.
 
 """
 import math
@@ -35,10 +35,10 @@ def gaussian_stream_sum(ci, vWsph_i, sigma_i):
 
 # Model 4: a bunch of streams, not symmetric.
 # Including a halo component without vEsc.
-v0_main = 220*km_s
-v0_a = 70*km_s
-v0_b = 50*km_s
-v0_c = 25*km_s
+v0_main = 220*km_s / np.sqrt(2)
+v0_a = 70*km_s / np.sqrt(2)
+v0_b = 50*km_s / np.sqrt(2)
+v0_c = 25*km_s / np.sqrt(2)
 vX_main = vsdm.cart_to_sph((0, 0, -230*km_s))
 vX_a = vsdm.cart_to_sph((80*km_s, 0, -80*km_s))
 vX_b = vsdm.cart_to_sph((-120*km_s, -250*km_s, -150*km_s))

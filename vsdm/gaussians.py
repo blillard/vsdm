@@ -1,9 +1,13 @@
-"""Analytic results for gaussian functions.
+"""Analytic results for gaussian integrals.
 
 Functions:
     normG_nli_integrand: analytic radial integrand for '\mathcal G'
     GaussianF: a class for functions that are defined as sums of gaussians
     Gnli: a Basis class with additional methods for GaussianF functions
+
+Gaussian function normalization:
+    g(u_i, sigma_i; u) = exp(-0.5 * (u - u_i)**2 / sigma_i**2) / normFactor
+    normFactor = (2*pi * sigma_i**2)**(1.5)
 """
 
 __all__ = ['GaussianF', 'Gnli', 'normG_nli_integrand']
@@ -22,16 +26,16 @@ def normG_nli_integrand(radR_nlu, u_i, sigma_i, n, ell, u):
 
     Using spf.ive(z) = spf.exp(-z) * spf.iv(z) to control exponential factors.
     """
-    z = (2*u_i*u)/sigma_i**2
+    z = (u_i*u)/sigma_i**2
     if z==0:
         if ell==0:
-            ivefact = 4/math.sqrt(math.pi)
+            ivefact = math.sqrt(2/math.pi)
         else:
             return 0
     else:
-        ivefact = math.sqrt(8/z) * spf.ive(ell+0.5, z)
+        ivefact = math.sqrt(1/z) * spf.ive(ell+0.5, z)
     measure = u**2/sigma_i**3
-    expfact = math.exp(-(u-u_i)**2/sigma_i**2)
+    expfact = math.exp(-0.5*(u-u_i)**2/sigma_i**2)
     return measure * expfact * ivefact * radR_nlu(n, u, l=ell)
 
 
@@ -41,7 +45,7 @@ class GaussianF():
     Format:
         g = sum_i c_i * g_i
         g_i: normalized 3d gaussian, units of 1/sigma_i**3
-            g_i = exp(-(u-uSph_i)**2/sigma_i**2) / (pi**1.5 * sigma_i**3)
+            g_i = exp(-0.5*(u-uSph_i)**2/sigma_i**2) / ((2*pi)**1.5*sigma_i**3)
             int(d^3u g_i) = 1.
             int(d^3u g) = sum_i c_i
     Input:
@@ -72,7 +76,7 @@ class GaussianF():
             (c_i, uSph_i, sigma_i) = gvec
             (ux_i, uy_i, uz_i) = sph_to_cart(uSph_i)
             du2 = (ux - ux_i)**2 + (uy - uy_i)**2 + (uz - uz_i)**2
-            gaussnorm = math.pi**(-1.5) * sigma_i**(-3) * math.exp(-du2/sigma_i**2)
+            gaussnorm = (2*math.pi)**(-1.5) * sigma_i**(-3) * math.exp(-0.5*du2/sigma_i**2)
             sum_i += c_i * gaussnorm
         return sum_i
 
@@ -193,13 +197,13 @@ class Gnli(Basis, GaussianF):
         for i in range(self.N_gaussians):
             gvec_i = self.gvec_list[i]
             (c_i, uSph_i, sigma_i) = gvec_i
-            sigma2_i = sigma_i**2
+            sigma2_i = 2*sigma_i**2
             ui = np.array(sph_to_cart(uSph_i))
             u2i = ui.dot(ui)
             for j in range(self.N_gaussians):
                 gvec_j = self.gvec_list[j]
                 (c_j, uSph_j, sigma_j) = gvec_j
-                sigma2_j = sigma_j**2
+                sigma2_j = 2*sigma_j**2
                 uj = np.array(sph_to_cart(uSph_j))
                 u2j = uj.dot(uj)
                 sigma2_ij = sigma2_i*sigma2_j/(sigma2_i + sigma2_j)
