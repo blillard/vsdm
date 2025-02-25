@@ -188,18 +188,27 @@ class McalK():
             trKl += [Klmm]
         return np.array(trKl)
 
-    def mu_garray(self, gvec_list, lmod_g=None):
+    def mu_garray(self, gvec_list, lmod_g=None, use_vecK=True):
         """Partial rate mu[ell] = R[ell]/g_k0 for a list of WignerG gvec vectors.
 
         Arguments:
         * gvec_array: a list of WignerG 'gvec' to evaluate
             gvec: a 1d WignerG vector of type WignerG.G(R) for rotation 'R'.
         * lmod_g: if lmod for gvec does not match self.lmod, set lmod_g here.
+        * use_vecK: by default, calculate 'mu' from the reduced partial rate
+            matrix self.vecK. If use_vecK==False, then calculate 'mu' from
+            the dimensionful partial rate matrix self.PartialRate.
+            (Needed if McalK is imported from tabulated data that includes
+             PartialRate but not vecK and v0,q0.)
 
         Output:
         * list of mu[ell] = R[ell]/g_k0 vectors for ell = 0,...ellMax
             mu_l is the same axis=0 length as the 2d gvec_array
         """
+        if use_vecK:
+            vecK = self.vecK
+        else:
+            vecK = self.PartialRate
         if lmod_g is None: # assume that indexing of gvec matches K
             lmod_g = self.lmod
         if len(np.shape(gvec_list))==1:
@@ -226,7 +235,7 @@ class McalK():
         for l in ells:
             start_k = Gindex(l, -l, -l, lmod=self.lmod)
             end_k = Gindex(l, l, l, lmod=self.lmod)
-            k_l[l] = self.vecK[start_k:end_k+1]
+            k_l[l] = vecK[start_k:end_k+1]
             start_g = Gindex(l, -l, -l, lmod=lmod_g)
             end_g = Gindex(l, l, l, lmod=lmod_g)
             gR_l[l] = gvec_array[:, start_g:end_g+1]
@@ -235,11 +244,11 @@ class McalK():
             mu_l[:, ix_l] = gR_l[l] @ k_l[l]
         return mu_l
 
-    def mu_R_l(self, wG):
+    def mu_R_l(self, wG, use_vecK=True):
         """Partial rate R[ell]/g_k0 for a WignerG instance wG."""
-        return self.mu_garray(wG.G_array, lmod_g=wG.lmod)
+        return self.mu_garray(wG.G_array, lmod_g=wG.lmod, use_vecK=use_vecK)
 
-    def mu_R(self, wG):
+    def mu_R(self, wG, use_vecK=True):
         """Total rate, sum_ell R[ell]/g_k0 for a WignerG instance wG.
 
         This is the main rate calculation, and it is designed to be fast.
@@ -250,12 +259,16 @@ class McalK():
         ellMax_g = wG.ellMax
         gvec_array = wG.G_array
         if lmod_g != self.lmod or ellMax_g != self.ellMax:
-            return self.mu_garray(gvec_array, lmod_g=wG.lmod).sum(axis=1)
+            return self.mu_garray(gvec_array, lmod_g=wG.lmod,
+                                  use_vecK=use_vecK).sum(axis=1)
         # assuming G and K have the same shape in (l,m,m'):
-        return gvec_array @ self.vecK
+        if use_vecK:
+            return gvec_array @ self.vecK
+        # else:
+        return gvec_array @ self.PartialRate
 
-    def Nevents(self, wG, exp_kgyr=1., mCell_g=1.,
-                sigma0_cm2=1e-40, rhoX_GeVcm3=0.4):
+    def Nevents(self, wG, exp_kgyr=1., mCell_g=1., sigma0_cm2=1e-40,
+                rhoX_GeVcm3=0.4, use_vecK=True):
         """Total rate: as expected number of events given some exposure time.
 
         Uses g_k0() from utilities.py, with:
@@ -264,10 +277,14 @@ class McalK():
         sigma0_cm2: cross section factor normalizing the FDM2(v,q) form factor
         rhoX_GeVcm3: local DM density, in GeV (mass) per cubic centimeter
         """
-        k0 = g_k0(exp_kgyr=exp_kgyr, mCell_g=mCell_g, sigma0_cm2=sigma0_cm2,
-                  rhoX_GeVcm3=rhoX_GeVcm3, v0=self.v0, q0=self.q0)
-        return k0 * self.mu_R(wG)
-
+        if use_vecK:
+            k0 = g_k0(exp_kgyr=exp_kgyr, mCell_g=mCell_g, sigma0_cm2=sigma0_cm2,
+                      rhoX_GeVcm3=rhoX_GeVcm3, v0=self.v0, q0=self.q0)
+            return k0 * self.mu_R(wG, use_vecK=use_vecK)
+        # else:
+        expfact = ExposureFactor(exp_kgyr=exp_kgyr, mCell_g=mCell_g,
+                                 sigma0_cm2=sigma0_cm2, rhoX_GeVcm3=rhoX_GeVcm3)
+        return expfact * self.mu_R(wG, use_vecK=use_vecK)
 
 class RateCalc(McalK):
     """Evaluates McalK and rate from <nlm|gX> and <nlm|fgs2>.
