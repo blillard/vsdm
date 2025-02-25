@@ -551,7 +551,7 @@ class EvaluateFnlm(Fnlm, Gnli):
 
     """
     def __init__(self, basis, fSph, integ_params, nlmlist=[], f_type=None,
-                 csvsave_name=None, use_gvar=True):
+                 csvsave_name=None, use_gvar=False):
         Fnlm.__init__(self, basis, f_type=f_type, use_gvar=use_gvar)
         t0 = time.time()
         self.fSph = fSph # a function fSph(uvec), with uvec=(u,theta,phi)
