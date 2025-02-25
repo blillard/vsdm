@@ -30,7 +30,7 @@ Interpolation:
         Contains a dictionary of 1d Interpolator objects, labeled by (l,m).
 """
 
-__all__ = ['g_k0', 'fdm2_n', 'fdm2_ab', 'mathsinc', 'dV_sph',
+__all__ = ['g_k0', 'ExposureFactor', 'fdm2_n', 'fdm2_ab', 'mathsinc', 'dV_sph',
            'plm_real', 'plm_norm', 'ylm_real', 'ylm_cx', 'ylm_scipy',
            'makeNLMlist',
            'splitGVARarray', 'joinGVARarray', '_LM_to_x', '_x_to_LM',
@@ -54,8 +54,15 @@ from .units import *
 def g_k0(exp_kgyr=1., mCell_g=1., sigma0_cm2=1e-40,
          rhoX_GeVcm3=0.4, v0=220.*km_s, q0=qBohr):
     # 1 year = 365.0 days in 'kgyr'
+    # multiplies McalK.vecK to return the expected number of events
     return 3288.95 *( (1.0/mCell_g) * (exp_kgyr/1.) * (sigma0_cm2/1e-40)
         * (rhoX_GeVcm3/0.4) * (v0/(220.*km_s))**2 * (qBohr/q0) )
+
+def ExposureFactor(exp_kgyr=1., mCell_g=1., sigma0_cm2=1e-40, rhoX_GeVcm3=0.4):
+    # 1 year = 365.0 days in 'kgyr'
+    # multiplies McalK.PartialRate to return the expected number of events 
+    return g_k0(exp_kgyr=exp_kgyr, mCell_g=mCell_g, sigma0_cm2=sigma0_cm2,
+                rhoX_GeVcm3=rhoX_GeVcm3, v0=1, q0=1)
 
 ### Physics function: squared form factor for DM-SM particle scattering
 def fdm2_n(n, q):
