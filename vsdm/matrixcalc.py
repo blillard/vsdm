@@ -107,7 +107,8 @@ class McalI():
         # self.attributes is the dict that will be saved in hdf5 files
         if do_mcalI:
             lnvq_max = (mI_shape[0]-1, mI_shape[1]-1, mI_shape[2]-1)
-            self.update_mcalI(lnvq_max, dict(verbose=False), analytic=True)
+            # always try analytic method when running update_mcalI at init: 
+            self.update_mcalI(lnvq_max, analytic=True)
             self.evaluated = True
         self.t_eval = time.time() - t0
 
@@ -297,7 +298,7 @@ class McalI():
             print("\t Ilvq = ", Ilvq)
         return Ilvq
 
-    def updateIlvq(self, lnvq, integ_params, analytic=False):
+    def updateIlvq(self, lnvq, integ_params=None, analytic=False):
         """Calculates Ilvq(l,nv,nq) using numeric or analytic method.
 
         Arguments:
@@ -307,6 +308,8 @@ class McalI():
                 If empty, assume verbose=False.
             analytic: whether to try analytic method or not
         """
+        if (integ_params is None) or integ_params=={}:
+            integ_params = dict(verbose=False)
         if analytic:
             if 'verbose' in integ_params:
                 verbose = integ_params['verbose']
@@ -329,7 +332,7 @@ class McalI():
         self.mcalI[lnvq] = Ilvq.mean
         return Ilvq
 
-    def update_mcalI(self, lnvq_max, integ_params, analytic=True):
+    def update_mcalI(self, lnvq_max, integ_params=None, analytic=True):
         """Calculates entire Ilvq array in series, up to lnvq_max.
 
         Arguments:
@@ -345,7 +348,8 @@ class McalI():
             for nv in range(nv_max + 1):
                 for nq in range(nq_max + 1):
                     lnvq = (l, nv, nq)
-                    self.updateIlvq(lnvq, integ_params, analytic=analytic)
+                    self.updateIlvq(lnvq, integ_params=integ_params,
+                                    analytic=analytic)
                     # this style sets analytic -> False if it is attempted on
                     # incompatible basis functions
         self.evaluated = True
@@ -450,14 +454,15 @@ class MakeMcalI(McalI):
     """
     # Reserving DeltaE, mX, FDM2 for parallelization
     # Note: for variable nMax(ell) or variable precision, run init() with ellMax=0, then do add_ell for ell=1..ellMax
-    def __init__(self, V, Q, modelDMSM, mI_shape, integ_params={},
+    def __init__(self, V, Q, modelDMSM, mI_shape, integ_params=None,
                  analytic=True, lnvq_list=None, f_type=TNAME_mcalI,
                  hdf5file=None, modelName=None):
         McalI.__init__(self, V, Q, modelDMSM, mI_shape=mI_shape, f_type=f_type)
         # adds mI_shape, f_type to self.
         if lnvq_list is not None:
             for lnvq in lnvq_list:
-                self.updateIlvq(lnvq, integ_params, analytic=analytic)
+                self.updateIlvq(lnvq, integ_params=integ_params,
+                                analytic=analytic)
             # save empty mcalI array to hdf5 if no lnvq_list provided
             if hdf5file is not None:
                 dname_mean, dname_sdev = self.writeMcalI(hdf5file, modelName)
@@ -487,10 +492,10 @@ class MakeMcalI(McalI):
         self.nvMax = mI_shape[1]
         self.nqMax = mI_shape[2]
 
-    def add_lnvqs(self, lnvq_list, integ_params={}):
+    def add_lnvqs(self, lnvq_list, integ_params=None):
         newdata = {}
         for lnvq in lnvq_list:
-            Ilvq = self.updateIlvq(lnvq, integ_params,
+            Ilvq = self.updateIlvq(lnvq, integ_params=integ_params,
                                    analytic=self.analytic)
             newdata[lnvq] = Ilvq
         # wait until the end to write the list to hdf5
