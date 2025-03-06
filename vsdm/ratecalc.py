@@ -61,6 +61,8 @@ def _vecK(gV, fsQ, mI, ellMax=None, lmod=1,
     # initialize...
     lenK = Gindex(ellMax, ellMax, ellMax, lmod=lmod) + 1
     vecK = np.zeros(lenK)
+    # Normalization factor:
+    v0 = gV.u0
 
     # fill in values:
     if sparse:
@@ -75,7 +77,7 @@ def _vecK(gV, fsQ, mI, ellMax=None, lmod=1,
                 ix_K = Gindex(ell, mv, mq, lmod=lmod)
                 Ilvq = mI.getI_lvq_analytic((ell, nv, nq))
                 vecK[ix_K] += gV_nlm * Ilvq * fsQ_nlm
-        return vecK
+        return v0**3 * vecK
     ### ELSE: (not sparse)
     # this _makeFarray does use_gvar only if gV.use_gvar:
     if gV.f_lm_n is None or remake_Farray:
@@ -120,7 +122,7 @@ def _vecK(gV, fsQ, mI, ellMax=None, lmod=1,
                     fvecM = fLMn_fsQ[xlm_q]
                 mxI = mcI[ell]
                 vecK[ix_K] = gvecM @ mxI @ fvecM
-    return vecK
+    return v0**3 * vecK
 
 class McalK():
     """Saves the K^(ell) matrices in a vector format, and performs rotations.

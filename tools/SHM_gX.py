@@ -60,6 +60,12 @@ to the same hdf5 file.
 coefficients will be saved to a database 'fnlm__2', 'fnlm__3', etc., using
 a naming scheme chosen by Portfolio.
 
+
+Normalization: the velocity distribution gX has units of inverse velocity cubed:
+    [gX] = [VUNIT]**(-3)
+By default, units.py reports all velocities (e.g. km_s) in units of c, i.e.
+    km_s = 2.99792e5**(-1)
+
 """
 import math
 import numpy as np
@@ -142,10 +148,10 @@ def main(n_days, l_max, power2):
 
     @numba.jit("double(double[:])", nopython=True)
     def gModel(vSph):
-        # dimensionless "g_tilde = VMAX**3 * gX"
+        # units of [velocity]**(-3)
         [v_r, v_theta, v_phi] = vSph
         costheta = np.cos(v_theta)
-        return VMAX**3 * gSHM_sph(vE, v_r, costheta)
+        return gSHM_sph(vE, v_r, costheta)
 
     gModel.is_gaussian = False
     gModel.phi_symmetric = True
@@ -203,10 +209,10 @@ def alt_vE(vE_km_s, l_max, power2):
 
     @numba.jit("double(double[:])", nopython=True)
     def gModel(vSph):
-        # dimensionless "g_tilde = VMAX**3 * gX"
+        # units of [velocity]**(-3)
         [v_r, v_theta, v_phi] = vSph
         costheta = np.cos(v_theta)
-        return VMAX**3 * gSHM_sph(vE, v_r, costheta)
+        return gSHM_sph(vE, v_r, costheta)
 
     gModel.is_gaussian = False
     gModel.phi_symmetric = True

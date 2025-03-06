@@ -1,20 +1,35 @@
 """Wavelet-harmonic projection of a four-gaussian gX model.
 
+Normalization: the velocity distribution gX has units of inverse velocity cubed:
+    [gX] = [VUNIT]**(-3)
+By default, units.py reports all velocities (e.g. km_s) in units of c, i.e.
+    km_s = 2.99792e5**(-1)
+
+This example code generates CSV files of all <gX|nlm> coefficients up to and
+including n=n_max and l=l_max, for all m = -l, ..., l-1, l.
+Saved to: out/gX_model4.csv
+It can be run using the terminal command:
+    python3 demo_gX.py n_max l_max
+for some specified n_max and l_max.
+
+Note: this example uses EvaluateFnlm, which is faster than WaveletFnlm
+(especially for Gaussian-type functions). The integration precision is
+generally much better when using WaveletFnlm, however.
 """
 import math
 import numpy as np
-import numba
-import scipy.special as spf
-import vegas # numeric integration
-import gvar # gaussian variables; for vegas
+# import numba
+# import scipy.special as spf
+# import vegas # numeric integration
+# import gvar # gaussian variables; for vegas
 import time
-import datetime as dts #for calendar functions
+# import datetime as dts #for calendar functions
 # import quaternionic # For rotations
 # import spherical #For Wigner D matrix
-import h5py # database format for mathcalI arrays
+# import h5py # database format for mathcalI arrays
 import sys
 
-sys.path.insert(0,'../') #load the local version of vsdm
+# sys.path.insert(0,'../') #load the local version of vsdm
 
 import vsdm
 from vsdm.units import *
@@ -52,25 +67,14 @@ VMAX = 960.*km_s # Global value for v0=vMax for wavelets
 basisV = dict(u0=VMAX, type='wavelet', uMax=VMAX)
 gXmodel_4 = vsdm.Gnli(basisV, gvec_list_4)
 
-# Define a function to convert GaussianF(gX) into GaussianF(tilde_gX),
-# for dimensionless function tilde_gX = u0**3 * gX,
-# where u0 is the vsdm.Basis.u0 scale factor
-def gX_to_tgX(gauF, u0):
-    tgauF_vecs = gauF.rescaleGaussianF(u0**3)
-    return vsdm.Gnli(gauF.basis, tgauF_vecs)
-
-gXmodel = gX_to_tgX(gXmodel_4, VMAX)
-gvec_tilde_4 = gXmodel.gvec_list
-
-
-
 
 def main(n_max, l_max):
-    gXmodel.is_gaussian = True
+    gXmodel_4.is_gaussian = True
     power2 = int(np.ceil(np.log2(n_max+1)))
+    # csvout = None
     csvout = 'out/gX_new.csv'
 
-    energy = gXmodel.norm_energy()
+    energy = gXmodel_4.norm_energy()
     print("energy: ", energy)
 
     bdict = dict(u0=VMAX, type='wavelet', uMax=VMAX)
@@ -81,29 +85,18 @@ def main(n_max, l_max):
                         atol_f=0.01*atol_f,
                         rtol_f=epsilon)
     t0 = time.time()
-    wave_extp = vsdm.WaveletFnlm(bdict, gXmodel, integ_params,
-                                 power2_lm={}, p_order=3,
-                                 epsilon=epsilon,
-                                 atol_f2norm=atol_E,
-                                 atol_fnlm=atol_f,
-                                 max_depth=5,
-                                 refine_at_init=False,
+    nlmlist = [(n, l, m) for n in range(n_max+1)
+               for l in range(l_max+1) for m in range(-l, l+1)]
+    wave_extp = vsdm.EvaluateFnlm(bdict, gXmodel_4, integ_params,
+                                 nlmlist=nlmlist,
                                  f_type='gX',
                                  csvsave_name=csvout,
                                  use_gvar=True)
 
-    lm_list = [(l, m) for l in range(l_max+1) for m in range(-l, l+1)]
-    t0_lm = {}
-    for lm in lm_list:
-        t_lm = time.time()
-        wave_extp.initialize_lm(lm, power2)
-        t0_lm[lm] = time.time() - t_lm
-        print("Integration time:", t0_lm[lm])
 
     # Save to hdf5, then read off the integration times.
     csvname = 'out/gX_model4.csv'
     wave_extp.writeFnlm_csv(csvname)
-    # wave_extp.add_data(hdf5name, 'f2_m4', use_gvar=True)
     print("Integration times:")
     for lm,t in t0_lm.items():
         print("\t", lm, t)
@@ -112,6 +105,6 @@ def main(n_max, l_max):
 
 
 
-main(float(sys.argv[1]), int(sys.argv[2]))
+main(int(sys.argv[1]), int(sys.argv[2]))
 
 #
