@@ -151,7 +151,7 @@ class McalK():
         self.ellMax = ellMax
         self.lmod = lmod
         self.use_gvar = use_gvar
-        lenK = Gindex(ellMax,ellMax,ellMax) + 1
+        lenK = Gindex(ellMax,ellMax,ellMax, lmod=lmod) + 1
         if use_gvar:
             self.vecK = np.zeros(lenK, dtype='object')
             self.PartialRate = np.zeros(lenK, dtype='object')

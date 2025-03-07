@@ -107,7 +107,7 @@ class McalI():
         # self.attributes is the dict that will be saved in hdf5 files
         if do_mcalI:
             lnvq_max = (mI_shape[0]-1, mI_shape[1]-1, mI_shape[2]-1)
-            # always try analytic method when running update_mcalI at init: 
+            # always try analytic method when running update_mcalI at init:
             self.update_mcalI(lnvq_max, analytic=True)
             self.evaluated = True
         self.t_eval = time.time() - t0
@@ -354,12 +354,13 @@ class McalI():
                     # incompatible basis functions
         self.evaluated = True
 
-    def writeMcalI(self, hdf5file, modelName, alt_type=None):
+    def writeMcalI(self, hdf5file, modelName, alt_type=None, use_gvar=False):
         """Saves Ilvq array to hdf5 under name 'modelName'.
 
         Recommend using DeltaE and DM parameters as the model label:
             e.g. modelName = (DeltaE, mX, fdm)
         """
+        modelName = str(modelName)
         if alt_type is not None:
             typeName = alt_type
         else:
@@ -371,26 +372,31 @@ class McalI():
                 dset_attrs[lbl] = value
         folio = Portfolio(hdf5file, extra_types=[typeName])
         dn_mean = DNAME_I + '_mean' # intended dbase name
-        dn_sdev = DNAME_I + '_sdev' # intended dbase name
-        if self.use_gvar:
+        if self.use_gvar and use_gvar:
             Ilvq_mean, Ilvq_sdev = splitGVARarray(self.mcalI_gvar)
+            dn_sdev = DNAME_I + '_sdev' # intended dbase name
         else:
             Ilvq_mean = self.mcalI
-            Ilvq_sdev = np.zeros_like(Ilvq_mean)
         dname_mean = folio.add_folio(typeName, modelName, dn_mean,
                                      data=Ilvq_mean, attrs=dset_attrs)
-        dname_sdev = folio.add_folio(typeName, modelName, dn_sdev,
-                                     data=Ilvq_sdev, attrs=dset_attrs)
-        return dname_mean, dname_sdev
+        if self.use_gvar and use_gvar:
+            dname_sdev = folio.add_folio(typeName, modelName, dn_sdev,
+                                         data=Ilvq_sdev, attrs=dset_attrs)
+            return dname_mean, dname_sdev
+        # else:
+        return dname_mean
 
-    def write_update(self, hdf5file, modelName, d_pair, newdata,
+    def write_update(self, hdf5file, modelName, dataset, newdata,
                      alt_type=None):
         """Adds mcalI[l,nv,nq] values to existing hdf5 datasets.
 
+        If newdata is gvar-valued, then 'dataset' should be a list of two
+            datasets, in the format: dataset = ['dataset_mean', 'dataset_sdev']
+        Otherwise, 'dataset' should specify a single dataset, e.g. dataset_mean
         Arguments:
             hdf5file, modelName, d_pair: specify datasets to use
-                hdf5file/type/modelName/
-                    d_pair[0]: _mean ,   d_pair[1]: _sdev.
+                hdf5file/type/modelName/dataset # for float-valued data, or:
+                    dataset[0]: _mean ,   dataset[1]: _sdev # for gvar data
             newdata: a dict of I[l,nv,nq] coefficients, in style of mcalI.
         """
         if alt_type is not None:
@@ -398,7 +404,10 @@ class McalI():
         else:
             typeName = self.f_type
         folio = Portfolio(hdf5file, extra_types=[typeName])
-        folio.update_gvar(typeName, modelName, d_pair, newdata=newdata)
+        if type(dataset) is str:
+            folio.update_folio(typeName, modelName, dataset, newdata=newdata)
+        else:
+            folio.update_gvar(typeName, modelName, dataset, newdata=newdata)
 
     def importMcalI(self, hdf5file, modelName, d_pair=[], alt_type=None):
         """Imports mcalI from hdf5, adds to f_nlm.
@@ -421,18 +430,21 @@ class McalI():
         else:
             typeName = self.f_type
         folio = Portfolio(hdf5file, extra_types=[typeName])
-        dataIlvq, attrs = folio.read_gvar(typeName, modelName, d_pair=d_pair)
-        basis_info = str_to_bdict(attrs)
-        dshape = np.shape(dataIlvq)
-        # if needed, pad self.mcalI to accommodate data:
-        corner_lnvq = [d+1 for d in dshape]
-        self._pad_mcalI(corner_lnvq)
-        for l in range(dshape[0]):
-            for nv in range(dshape[1]):
-                for nq in range(dshape[2]):
-                    self.mcalI[l, nv, nq] = dataIlvq[l, nv, nq].mean
-                    if self.use_gvar:
-                        self.mcalI_gvar[l, nv, nq] = dataIlvq[l, nv, nq]
+        if self.use_gvar==False:
+            dataIlvq, attrs = folio.read_folio(typeName, modelName, d_pair[0])
+            self.mcalI = dataIlvq
+        else:
+            dataIlvq, attrs = folio.read_gvar(typeName, modelName, d_pair=d_pair)
+            self.mcalI_gvar = dataIlvq
+            # if needed, pad self.mcalI to accommodate data:
+            corner_lnvq = [d+1 for d in self.mI_shape]
+            self._pad_mcalI(corner_lnvq)
+            for l in range(self.mI_shape[0]):
+                for nv in range(self.mI_shape[1]):
+                    for nq in range(self.mI_shape[2]):
+                        self.mcalI[l, nv, nq] = dataIlvq[l, nv, nq].mean
+        self.mI_shape = np.shape(dataIlvq)
+        self.evaluated = True
         return dataIlvq, attrs
 
 #
