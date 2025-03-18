@@ -371,11 +371,12 @@ class McalI():
             if value is not None:
                 dset_attrs[lbl] = value
         folio = Portfolio(hdf5file, extra_types=[typeName])
-        dn_mean = DNAME_I + '_mean' # intended dbase name
         if self.use_gvar and use_gvar:
+            dn_mean = DNAME_I + '_mean' # intended dbase name
             Ilvq_mean, Ilvq_sdev = splitGVARarray(self.mcalI_gvar)
             dn_sdev = DNAME_I + '_sdev' # intended dbase name
         else:
+            dn_mean = DNAME_I # intended dbase name
             Ilvq_mean = self.mcalI
         dname_mean = folio.add_folio(typeName, modelName, dn_mean,
                                      data=Ilvq_mean, attrs=dset_attrs)
