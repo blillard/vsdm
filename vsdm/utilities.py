@@ -60,7 +60,7 @@ def g_k0(exp_kgyr=1., mCell_g=1., sigma0_cm2=1e-40,
 
 def ExposureFactor(exp_kgyr=1., mCell_g=1., sigma0_cm2=1e-40, rhoX_GeVcm3=0.4):
     # 1 year = 365.0 days in 'kgyr'
-    # multiplies McalK.PartialRate to return the expected number of events 
+    # multiplies McalK.PartialRate to return the expected number of events
     return g_k0(exp_kgyr=exp_kgyr, mCell_g=mCell_g, sigma0_cm2=sigma0_cm2,
                 rhoX_GeVcm3=rhoX_GeVcm3, v0=1, q0=1)
 
@@ -406,6 +406,13 @@ def cart_to_sph(uXYZ):
             phi = 0.5*math.pi
         elif uy < 0:
             phi = 1.5*math.pi
+        return (u, theta, phi)
+    # for [-1,0,0]:
+    if uy == 0:
+        if ux > 0:
+            phi = 0.
+        elif ux < 0:
+            phi = math.pi
         return (u, theta, phi)
     # Now, non-special cases...
     if ux > 0 and uy > 0:
